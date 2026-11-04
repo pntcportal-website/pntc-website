@@ -16,8 +16,8 @@ module.exports = function contentRoutes(app, { requireAuth, ghGetFile, ghPutFile
   const fail = (res, e) => { console.error('Site content error:', e); res.status(500).json({ error: e.message || 'Something went wrong' }); };
 
   // List of editable sections, for the menu
-  app.get('/api/content/groups', requireAuth, (_req, res) => {
-    res.json(CONTENT.GROUPS.map(g => ({ id: g.id, site: g.site, title: g.title, note: g.note || '', files: g.files })));
+  app.get('/api/content/groups', requireAuth, (req, res) => {
+    res.json(CONTENT.GROUPS.filter(g => !req.canContentGroup || req.canContentGroup(g.id)).map(g => ({ id: g.id, site: g.site, title: g.title, note: g.note || '', files: g.files })));
   });
 
   // Current values of one section, read from the live page

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PNTC Admin – Users</title>
+<link rel="stylesheet" href="admin.css">
+<script src="access.js"></script>
+<style>
+.u-grid { display:grid; grid-template-columns: minmax(0,1.6fr) minmax(280px,1fr); gap:1.5rem; align-items:start; }
+@media (max-width: 1100px) { .u-grid { grid-template-columns:1fr; } }
+.u-role { display:inline-block; padding:.18rem .6rem; border-radius:99px; font-size:.7rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; background:rgba(122,139,168,.15); color:var(--text); white-space:nowrap; }
+.u-role.executive { background:rgba(200,150,12,.18); color:var(--gold-lt); }
+.u-role.it { background:rgba(30,95,232,.18); color:var(--blue-lt); }
+.u-role.marketing { background:rgba(232,64,64,.15); color:#ff8a8a; }
+.u-role.academic { background:rgba(22,163,74,.16); color:#4ade80; }
+.u-role.hr { background:rgba(168,85,247,.16); color:#c084fc; }
+.u-you { font-size:.68rem; color:var(--muted); margin-left:.35rem; }
+.u-pass { margin-top:1rem; padding:1rem; border-radius:var(--radius); border:1px solid rgba(200,150,12,.45); background:rgba(200,150,12,.08); }
+.u-pass[hidden] { display:none; }
+.u-pass code { display:block; margin:.5rem 0; padding:.6rem .8rem; border-radius:6px; background:var(--bg); font-size:1.05rem; letter-spacing:.04em; color:var(--gold-lt); word-break:break-all; user-select:all; }
+.u-pass p { margin:0; font-size:.8rem; color:var(--muted); line-height:1.5; }
+.u-msg { margin-top:.75rem; font-size:.82rem; line-height:1.5; }
+.u-msg.err { color:#f87171; } .u-msg.ok { color:#4ade80; }
+.u-legend { display:grid; gap:.7rem; }
+.u-legend div { font-size:.8rem; line-height:1.5; color:var(--muted); }
+.u-legend b { color:var(--text); }
+.u-actions { display:flex; gap:.4rem; flex-wrap:wrap; justify-content:flex-end; }
+.data-table select.form-select { padding:.3rem .5rem; font-size:.78rem; min-width:150px; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <img src="/site-files/SHS/PNTC White Horizontal.png" alt="PNTC" onerror="this.style.display='none'">
+    <div class="sidebar-brand-sub">Admin Console</div>
+  </div>
+  <div class="sidebar-section-label">Navigation</div>
+  <nav class="sidebar-nav">
+    <a class="nav-item" href="index.html"><span class="nav-icon">🏠</span> Dashboard</a>
+    <a class="nav-item" href="posts.html"><span class="nav-icon">📝</span> Posts &amp; Blog</a>
+    <a class="nav-item" href="images.html"><span class="nav-icon">🖼️</span> Image Manager</a>
+    <a class="nav-item" href="landing.html"><span class="nav-icon">🏛️</span> Landing Page</a>
+    <a class="nav-item" href="content.html"><span class="nav-icon">✏️</span> Site Content</a>
+    <a class="nav-item" href="chat.html"><span class="nav-icon">💬</span> Live Chat</a>
+  </nav>
+  <div class="sidebar-bottom">
+    <strong>PNTC Admin</strong>
+    <button onclick="logout()" style="margin-top:.6rem;width:100%;padding:.45rem;background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.25);border-radius:5px;font-size:.75rem;font-weight:700;cursor:pointer;letter-spacing:.06em;text-transform:uppercase">Logout</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title">Users</span>
+    <span class="topbar-sub">Admin console logins and their access types</span>
+  </div>
+
+  <div class="page-content">
+    <div class="u-grid">
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Logins</span><span class="td-muted" id="u-count"></span></div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr><th>Name</th><th>Access type</th><th>Last login</th><th></th></tr></thead>
+            <tbody id="u-rows"><tr><td colspan="4" class="td-muted">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="u-msg" id="u-list-msg"></div>
+        <div class="u-pass" id="u-reset" hidden>
+          <strong id="u-reset-title">New password</strong>
+          <code id="u-reset-pass"></code>
+          <p>Copy it now and give it to the person privately. It is shown only once. They can log in at /admin right away.</p>
+        </div>
+      </div>
+
+      <div style="display:grid;gap:1.5rem">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Add a user</span></div>
+          <form id="u-form" autocomplete="off">
+            <div class="form-group">
+              <label class="form-label" for="u-name">Full name</label>
+              <input class="form-input" id="u-name" placeholder="Juan dela Cruz" maxlength="80">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="u-email">Email</label>
+              <input class="form-input" id="u-email" type="email" placeholder="name@pntc.edu.ph" maxlength="120" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="u-role">Access type</label>
+              <select class="form-select" id="u-role" required></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="u-pass">Password <span class="td-muted">(optional)</span></label>
+              <input class="form-input" id="u-pass" type="text" placeholder="Leave empty to create one" maxlength="72" autocomplete="new-password">
+              <div class="form-hint">At least 8 characters. If left empty, a strong password is created for you.</div>
+            </div>
+            <button class="btn btn-primary" type="submit" id="u-add">Add user</button>
+            <div class="u-msg" id="u-form-msg"></div>
+          </form>
+          <div class="u-pass" id="u-created" hidden>
+            <strong>Login created</strong>
+            <code id="u-created-pass"></code>
+            <p>This is the password. Copy it now and give it to the person privately with their email. It is shown only once. They can log in at /admin right away.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">What each access type can use</span></div>
+          <div class="u-legend" id="u-legend"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const AREA_NAMES = { posts: 'Posts & Blog', images: 'Image Manager', content: 'Site Content', calendar: 'Academic Calendars and Training Courses', careers: 'Careers', research: 'Research', directory: 'Directory', merchandise: 'Merchandise', chat: 'Live Chat', users: 'Users' };
+let roles = [], users = [], me = null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const when = d => d ? new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never';
+function msg(el, text, ok) { $(el).textContent = text || ''; $(el).className = 'u-msg ' + (text ? (ok ? 'ok' : 'err') : ''); }
+
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Something went wrong (' + r.status + ').');
+  return d;
+}
+
+async function load() {
+  try {
+    const d = await api('/api/users');
+    roles = d.roles; users = d.users.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
+    render();
+  } catch (e) { msg('u-list-msg', e.message); $('u-rows').innerHTML = ''; }
+}
+
+function roleSelect(value, attrs) {
+  return `<select class="form-select" ${attrs || ''}>${roles.map(r => `<option value="${r.id}"${r.id === value ? ' selected' : ''}>${esc(r.label)}</option>`).join('')}</select>`;
+}
+
+function render() {
+  $('u-count').textContent = users.length + (users.length === 1 ? ' login' : ' logins');
+  if (!$('u-role').options.length) $('u-role').innerHTML = '<option value="">Choose…</option>' + roles.map(r => `<option value="${r.id}">${esc(r.label)}</option>`).join('');
+  $('u-legend').innerHTML = roles.map(r => `<div><span class="u-role ${r.id}">${esc(r.label)}</span><br>${r.areas.map(a => esc(AREA_NAMES[a] || a)).join(', ')}${r.id === 'hr' ? ' (Careers page texts only in Site Content)' : ''}</div>`).join('');
+  $('u-rows').innerHTML = users.map(u => {
+    const you = me && u.id === me.id;
+    return `<tr data-id="${u.id}">
+      <td class="td-title">${esc(u.name || '(no name)')}${you ? '<span class="u-you">you</span>' : ''}<br><span class="td-muted">${esc(u.email)}</span></td>
+      <td>${you ? `<span class="u-role ${u.role}">${esc(u.label)}</span>` : roleSelect(u.role, 'data-act="role"')}</td>
+      <td class="td-muted">${when(u.last_sign_in_at)}</td>
+      <td><div class="u-actions">
+        <button class="btn btn-ghost btn-sm" data-act="rename">Rename</button>
+        <button class="btn btn-ghost btn-sm" data-act="reset">New password</button>
+        ${you ? '' : '<button class="btn btn-danger btn-sm" data-act="remove">Remove</button>'}
+      </div></td></tr>`;
+  }).join('') || '<tr><td colspan="4" class="td-muted">No logins yet.</td></tr>';
+}
+
+$('u-rows').addEventListener('change', async e => {
+  if (e.target.dataset.act !== 'role') return;
+  const id = e.target.closest('tr').dataset.id, u = users.find(x => x.id === id);
+  const label = roles.find(r => r.id === e.target.value).label;
+  if (!confirm(`Change ${u.name || u.email} to ${label}?`)) { e.target.value = u.role; return; }
+  try { const d = await api('/api/users/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: e.target.value }) });
+    Object.assign(u, d.user); msg('u-list-msg', `${u.name || u.email} is now ${label}. The change applies on their next page load.`, true); render();
+  } catch (err) { e.target.value = u.role; msg('u-list-msg', err.message); }
+});
+
+$('u-rows').addEventListener('click', async e => {
+  const act = e.target.dataset.act; if (!act || act === 'role') return;
+  const id = e.target.closest('tr').dataset.id, u = users.find(x => x.id === id);
+  $('u-reset').hidden = true;
+  try {
+    if (act === 'rename') {
+      const name = prompt('Full name', u.name || ''); if (name === null) return;
+      const d = await api('/api/users/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+      Object.assign(u, d.user); msg('u-list-msg', 'Name saved.', true); render();
+    }
+    if (act === 'reset') {
+      if (!confirm(`Create a new password for ${u.name || u.email}? Their old password stops working.`)) return;
+      const d = await api(`/api/users/${id}/reset-password`, { method: 'POST' });
+      $('u-reset-title').textContent = 'New password for ' + (u.name || u.email);
+      $('u-reset-pass').textContent = d.password; $('u-reset').hidden = false; msg('u-list-msg', '');
+    }
+    if (act === 'remove') {
+      if (!confirm(`Remove the login of ${u.name || u.email}? They will no longer be able to log in.`)) return;
+      await api('/api/users/' + id, { method: 'DELETE' });
+      users = users.filter(x => x.id !== id); msg('u-list-msg', 'Login removed.', true); render();
+    }
+  } catch (err) { msg('u-list-msg', err.message); }
+});
+
+$('u-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  msg('u-form-msg', ''); $('u-created').hidden = true;
+  const body = { name: $('u-name').value.trim(), email: $('u-email').value.trim(), role: $('u-role').value, password: $('u-pass').value };
+  if (!body.role) { msg('u-form-msg', 'Choose an access type.'); return; }
+  $('u-add').disabled = true; $('u-add').textContent = 'Adding…';
+  try {
+    const d = await api('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    users.push(d.user); render();
+    msg('u-form-msg', `${d.user.email} can now log in as ${d.user.label}.`, true);
+    if (d.password) { $('u-created-pass').textContent = d.password; $('u-created').hidden = false; }
+    e.target.reset();
+  } catch (err) { msg('u-form-msg', err.message); }
+  $('u-add').disabled = false; $('u-add').textContent = 'Add user';
+});
+
+document.addEventListener('pntc-access', e => { me = e.detail; load(); });
+if (window.PNTC_ME) { me = window.PNTC_ME; load(); }
+
+async function logout() { await fetch('/api/auth/logout', { method: 'POST' }); location.href = '/admin/login.html'; }
+</script>
+</body>
+</html>

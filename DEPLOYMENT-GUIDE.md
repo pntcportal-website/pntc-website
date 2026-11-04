@@ -88,11 +88,20 @@ Files involved, for reference: `wrangler.jsonc` (Cloudflare settings), `worker/i
 
 ---
 
-## Part 3.5. One-time Supabase update (do once, any time before go-live)
+## Part 3.5. Supabase database
 
-Supabase > **SQL Editor** > New query > paste the contents of `supabase/move-blog-images.sql` > **Run**.
-It points the existing blog posts at the cover photos that were moved into the website, so visitors stop
-downloading them from Supabase. The last line of the result should show no rows.
+**Keeping the current Supabase project:** run `supabase/move-blog-images.sql` once in the SQL Editor. It points
+the existing blog posts at the cover photos that were moved into the website. The last line should show no rows.
+
+**Starting a new Supabase project:** run the complete file (`pntc-supabase-complete.sql`, kept off GitHub because it
+contains chat visitors' contact details) once in the SQL Editor. It creates every table and loads all the content.
+To create it from only the public parts instead, run `supabase/schema.sql`, then `supabase/data.sql`.
+
+**Admin logins and access types:**
+1. Create the **first** login yourself in Supabase > Authentication > Users > Add user > Create new user
+   (email and password, tick Auto Confirm User). A login without an access type counts as Executive (Admin).
+2. Log in at `/admin` with it. Everyone else is added from the admin console's **Users** screen, which creates
+   their Supabase login and sets their access type (Executive, IT, Marketing, Academic or HR) in one step.
 
 How the site protects the Supabase free tier (egress), for reference:
 * The chat box checks only for new messages, every 4 seconds while it is open, and stops in background tabs.

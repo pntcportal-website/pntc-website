@@ -117,6 +117,65 @@ const IMAGE_SITES = {
 
 // ── Middleware ─────────────────────────────────────────────────
 app.use(express.json({ limit: '50mb' }));
+
+// ── Access types ───────────────────────────────────────────────
+// Each admin login is a Supabase Auth user. Its access type is kept in app_metadata.role, which only this
+// server (with the service_role key) can change. Logins made before access types existed count as Executive.
+const ROLES = {
+  executive: { label: 'Executive (Admin)', areas: '*' },
+  it:        { label: 'IT',         areas: ['posts', 'images', 'careers', 'research', 'directory', 'merchandise', 'content', 'calendar', 'chat'] },
+  marketing: { label: 'Marketing',  areas: ['posts', 'images', 'merchandise', 'content', 'chat'] },
+  academic:  { label: 'Academic',   areas: ['posts', 'research', 'directory', 'content', 'calendar'] },
+  hr:        { label: 'HR',         areas: ['careers', 'directory', 'content'] },
+};
+// Site Content sections HR may edit (the Careers page). Everyone else with "content" may edit all of them.
+const HR_CONTENT = id => /career/i.test(id);
+const roleOf = user => (user && user.app_metadata && ROLES[user.app_metadata.role]) ? user.app_metadata.role : 'executive';
+const can = (role, area) => ROLES[role].areas === '*' || ROLES[role].areas.includes(area);
+const areasOf = role => ROLES[role].areas === '*' ? ['posts', 'images', 'careers', 'research', 'directory', 'merchandise', 'content', 'calendar', 'chat', 'users'] : ROLES[role].areas;
+
+// Which part of the admin console an API request belongs to. null means public (the website itself uses it).
+function areaFor(p) {
+  if (p === '/api/public/posts' || p === '/api/sites' || p.startsWith('/api/auth/')) return null;
+  if (p === '/api/chat/agent-status' || p === '/api/chat/session') return null;                     // visitor chat box
+  if (/^\/api\/chat\/session\/[^/]+\/(message|messages|status)$/.test(p)) return null;               // visitor chat box
+  if (p.startsWith('/api/chat/')) return 'chat';
+  if (p.startsWith('/api/users')) return 'users';
+  if (p.startsWith('/api/posts') || p.startsWith('/api/publish') || p === '/api/upload/featured') return 'posts';
+  if (p.startsWith('/api/images')) return 'images';
+  const land = /^\/api\/landing\/(careers|research|directory|merchandise)\b/.exec(p);
+  if (land) return land[1];
+  if (p === '/api/calendar' || p === '/api/shs-calendar' || p === '/api/training-courses') return 'calendar';
+  if (p.startsWith('/api/content')) return 'content';
+  return 'users';                                              // anything else defaults to Executive only
+}
+
+async function currentUser(req) {
+  const token = getSessionToken(req.headers.cookie);
+  if (!token) return null;
+  try {
+    const r = await fetch(`${GOTRUE_URL}/user`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` } });
+    return r.ok ? await r.json() : null;
+  } catch { return null; }
+}
+
+// Every admin API request needs a login with the right access type
+app.use('/api', async (req, res, next) => {
+  const p = req.baseUrl + req.path;
+  const area = areaFor(p);
+  if (area === null) return next();
+  const user = await currentUser(req);
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  const role = roleOf(user);
+  req.user = user; req.role = role;
+  req.canContentGroup = id => role !== 'hr' || HR_CONTENT(id);
+  const denied = () => res.status(403).json({ error: `Your access type (${ROLES[role].label}) does not include this section.` });
+  if (!can(role, area)) return denied();
+  const group = /^\/api\/content\/([^/]+)$/.exec(p);
+  if (group && group[1] !== 'groups' && !req.canContentGroup(decodeURIComponent(group[1]))) return denied();
+  next();
+});
+
 // On Cloudflare there is no __dirname: the admin pages and website files are served from dist/ instead
 const LOCAL = typeof __dirname !== 'undefined';
 if (LOCAL) app.use(express.static(path.join(__dirname, 'public')));
@@ -763,6 +822,102 @@ app.post('/api/auth/logout', async (req, res) => {
   }
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`);
   res.json({ ok: true });
+});
+
+// Who is logged in, and which parts of the admin console they may use
+app.get('/api/auth/me', async (req, res) => {
+  const user = await currentUser(req);
+  if (!user) return res.status(401).json({ ok: false });
+  const role = roleOf(user);
+  res.json({ ok: true, id: user.id, email: user.email, name: (user.user_metadata && user.user_metadata.name) || '', role, label: ROLES[role].label, areas: areasOf(role), hrContentOnly: role === 'hr' });
+});
+
+// ── Users (Executive only, checked by the access middleware) ──────
+// Logins are created, changed and removed in Supabase Authentication through its admin API.
+const authAdmin = (path, opts = {}) => fetch(`${GOTRUE_URL}/admin/users${path}`, {
+  ...opts, headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', ...(opts.headers || {}) },
+});
+const authErr = async r => { try { const d = await r.json(); return d.msg || d.message || d.error_description || d.error || `Supabase ${r.status}`; } catch { return `Supabase ${r.status}`; } };
+const publicUser = u => ({ id: u.id, email: u.email, name: (u.user_metadata && u.user_metadata.name) || '', role: roleOf(u), label: ROLES[roleOf(u)].label, created_at: u.created_at, last_sign_in_at: u.last_sign_in_at || null });
+const makePassword = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = require('crypto').randomBytes(12);
+  return Array.from(bytes, b => chars[b % chars.length]).join('') + '!7';
+};
+async function allUsers() {
+  const out = [];
+  for (let page = 1; page <= 20; page++) {
+    const r = await authAdmin(`?page=${page}&per_page=200`);
+    if (!r.ok) throw new Error(await authErr(r));
+    const d = await r.json();
+    out.push(...(d.users || []));
+    if ((d.users || []).length < 200) break;
+  }
+  return out;
+}
+
+app.get('/api/users', async (_req, res) => {
+  try { res.json({ users: (await allUsers()).map(publicUser), roles: Object.entries(ROLES).map(([id, r]) => ({ id, label: r.label, areas: areasOf(id) })) }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/users', async (req, res) => {
+  const { name = '', email = '', role = '', password = '' } = req.body || {};
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return res.status(400).json({ error: 'Enter a valid email address.' });
+  if (!ROLES[role]) return res.status(400).json({ error: 'Choose an access type.' });
+  if (password && password.length < 8) return res.status(400).json({ error: 'The password needs at least 8 characters.' });
+  const pass = password || makePassword();
+  try {
+    const r = await authAdmin('', { method: 'POST', body: JSON.stringify({
+      email: email.trim().toLowerCase(), password: pass, email_confirm: true,
+      user_metadata: { name: name.trim() }, app_metadata: { role },
+    }) });
+    if (!r.ok) return res.status(400).json({ error: await authErr(r) });
+    const u = await r.json();
+    res.json({ ok: true, user: publicUser(u), password: password ? null : pass });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/users/:id', async (req, res) => {
+  const { name, role, password } = req.body || {};
+  if (role !== undefined && !ROLES[role]) return res.status(400).json({ error: 'Choose an access type.' });
+  if (password && password.length < 8) return res.status(400).json({ error: 'The password needs at least 8 characters.' });
+  try {
+    if (role && role !== 'executive' && req.params.id === req.user.id) return res.status(400).json({ error: 'You cannot remove your own Executive access.' });
+    if (role && role !== 'executive') {
+      const execs = (await allUsers()).filter(u => roleOf(u) === 'executive');
+      if (execs.length === 1 && execs[0].id === req.params.id) return res.status(400).json({ error: 'There must be at least one Executive (Admin) login.' });
+    }
+    const body = {};
+    if (name !== undefined) body.user_metadata = { name: String(name).trim() };
+    if (role) body.app_metadata = { role };
+    if (password) body.password = password;
+    const r = await authAdmin(`/${encodeURIComponent(req.params.id)}`, { method: 'PUT', body: JSON.stringify(body) });
+    if (!r.ok) return res.status(400).json({ error: await authErr(r) });
+    res.json({ ok: true, user: publicUser(await r.json()) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/users/:id/reset-password', async (req, res) => {
+  try {
+    const pass = makePassword();
+    const r = await authAdmin(`/${encodeURIComponent(req.params.id)}`, { method: 'PUT', body: JSON.stringify({ password: pass }) });
+    if (!r.ok) return res.status(400).json({ error: await authErr(r) });
+    res.json({ ok: true, password: pass });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+  if (req.params.id === req.user.id) return res.status(400).json({ error: 'You cannot remove your own login.' });
+  try {
+    const users = await allUsers();
+    const target = users.find(u => u.id === req.params.id);
+    if (!target) return res.status(404).json({ error: 'Login not found.' });
+    if (roleOf(target) === 'executive' && users.filter(u => roleOf(u) === 'executive').length === 1) return res.status(400).json({ error: 'There must be at least one Executive (Admin) login.' });
+    const r = await authAdmin(`/${encodeURIComponent(req.params.id)}`, { method: 'DELETE' });
+    if (!r.ok) return res.status(400).json({ error: await authErr(r) });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/', (_req, res) => res.redirect('/index.html'));
