@@ -17,6 +17,9 @@ const PORT = process.env.PORT || 3000;
 // ── Supabase ────────────────────────────────────────────────────
 // Use placeholder values if env vars missing so the module loads without throwing.
 // Actual API calls will fail gracefully with a clear error message.
+// Settings pasted with extra parts (a path such as /rest/v1, spaces, line breaks) are cleaned up first.
+if (process.env.SUPABASE_URL) { try { process.env.SUPABASE_URL = new URL(process.env.SUPABASE_URL.trim()).origin; } catch (_) {} }
+if (process.env.SUPABASE_SERVICE_KEY) process.env.SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY.replace(/\s+/g, '');
 const supabase = createClient(
   process.env.SUPABASE_URL         || 'https://placeholder.supabase.co',
   process.env.SUPABASE_SERVICE_KEY || 'placeholder-key'
@@ -856,7 +859,7 @@ app.post('/api/auth/login', async (req, res) => {
       // shown with Supabase's answer and the project address in use (never the key) so it can be fixed.
       if (data.error_code !== 'invalid_credentials' && !/invalid login credentials/i.test(data.msg || data.error_description || '')) {
         let host = ''; try { host = new URL(process.env.SUPABASE_URL).host; } catch { host = 'SUPABASE_URL is not a valid address'; }
-        return res.status(500).json({ ok: false, error: `Server setting problem (${host}). Supabase answered ${r.status}: ${data.message || data.msg || data.error_description || data.error || 'no details'}` });
+        return res.status(500).json({ ok: false, error: `Server setting problem (${host}). Supabase answered ${r.status}: ${data.message || data.msg || data.error_description || data.error || 'no details'}. Key type in use: ${/^eyJ/.test(SUPABASE_KEY) ? 'legacy service_role (correct)' : /^sb_/.test(SUPABASE_KEY) ? SUPABASE_KEY.split('_').slice(0, 2).join('_') + ' (wrong, use the legacy service_role key)' : 'unknown (use the legacy service_role key)'}` });
       }
       return res.status(401).json({ ok: false, error: data.error_description || data.msg || 'Invalid email or password.' });
     }
