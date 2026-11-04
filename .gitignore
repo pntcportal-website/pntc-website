@@ -7,3 +7,4 @@ Thumbs.db
 dist/
 .wrangler/
 .dev.vars
+supabase/data-chat.sql
