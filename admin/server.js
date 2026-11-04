@@ -842,7 +842,7 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ ok: false, error: 'Email and password are required.' });
   }
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
-    return res.status(500).json({ ok: false, error: 'Supabase env vars are missing. Add SUPABASE_URL and SUPABASE_SERVICE_KEY in Vercel → Project Settings → Environment Variables, then redeploy.' });
+    return res.status(500).json({ ok: false, error: 'Supabase env vars are missing. Add SUPABASE_URL and SUPABASE_SERVICE_KEY in Cloudflare (Worker > Settings > Variables and Secrets), then redeploy.' });
   }
   try {
     const r = await fetch(`${GOTRUE_URL}/token?grant_type=password`, {
@@ -852,6 +852,8 @@ app.post('/api/auth/login', async (req, res) => {
     });
     const data = await r.json();
     if (!r.ok || !data.access_token) {
+      // a wrong or mismatched key in the server settings is reported as such, not as a wrong password
+      if (r.status === 401 && data.message) return res.status(500).json({ ok: false, error: 'Server setting problem: Supabase says "' + data.message + '". Check that SUPABASE_SERVICE_KEY is the service_role key of the project in SUPABASE_URL.' });
       return res.status(401).json({ ok: false, error: data.error_description || data.msg || 'Invalid email or password.' });
     }
     res.setHeader('Set-Cookie',
