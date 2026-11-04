@@ -17,7 +17,10 @@ module.exports = function contentRoutes(app, { requireAuth, ghGetFile, ghPutFile
 
   // List of editable sections, for the menu
   app.get('/api/content/groups', requireAuth, (req, res) => {
-    res.json(CONTENT.GROUPS.filter(g => !req.canContentGroup || req.canContentGroup(g.id)).map(g => ({ id: g.id, site: g.site, title: g.title, note: g.note || '', files: g.files })));
+    const groups = CONTENT.GROUPS.filter(g => !req.canContentGroup || req.canContentGroup(g.id)).map(g => ({ id: g.id, site: g.site, title: g.title, note: g.note || '', files: g.files }));
+    // the calendar and course list screens, shown in the same menu
+    const tools = { calendar: !req.can || req.can('calendar'), courses: !req.can || req.can('courses') };
+    res.json({ groups, tools });
   });
 
   // Current values of one section, read from the live page

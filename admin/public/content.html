@@ -106,15 +106,26 @@ window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); 
 // ── menu ──
 async function loadMenu() {
   try {
-    const groups = await api('/api/content/groups');
-    let html = '', site = '';
-    for (const g of groups) {
-      if (g.site !== site) { site = g.site; html += `<div class="sc-site">${esc(site)}</div>`; }
-      html += `<button class="sc-item" data-id="${esc(g.id)}">${esc(g.title)}</button>`;
-      if (g.id === 'college-admissions-phase2') html += `<button class="sc-item" data-id="@calendar">Academic Calendar</button>`;
-      if (g.id === 'shs-why') html += `<button class="sc-item" data-id="@shs-calendar">Academic Calendar</button>`;
-      if (g.id === 'training-cta') html += `<button class="sc-item" data-id="@courses">Course list</button>`;
+    const { groups, tools } = await api('/api/content/groups');
+    // the calendar and course list screens sit in their site's list, after the section named here (or at its end)
+    const extra = [
+      tools.calendar && { site: 'Colleges', after: 'college-admissions-phase2', id: '@calendar', title: 'Academic Calendar' },
+      tools.calendar && { site: 'Senior High School', after: 'shs-why', id: '@shs-calendar', title: 'Academic Calendar' },
+      tools.courses && { site: 'Training Center', after: 'training-assess', id: '@courses', title: 'Course list' },
+    ].filter(Boolean);
+    const sites = [];
+    for (const g of groups) { let s = sites.find(x => x.name === g.site); if (!s) sites.push(s = { name: g.site, items: [] }); s.items.push(g); }
+    for (const x of extra) {
+      let s = sites.find(y => y.name === x.site); if (!s) sites.push(s = { name: x.site, items: [] });
+      const i = s.items.findIndex(g => g.id === x.after);
+      s.items.splice(i < 0 ? s.items.length : i + 1, 0, x);
     }
+    let html = '';
+    for (const s of sites) {
+      html += `<div class="sc-site">${esc(s.name)}</div>`;
+      for (const g of s.items) html += `<button class="sc-item" data-id="${esc(g.id)}">${esc(g.title)}</button>`;
+    }
+    if (!html) html = '<div class="sc-empty">Your access type has no Site Content sections.</div>';
     $('menu').innerHTML = html;
     $('menu').addEventListener('click', e => {
       const b = e.target.closest('.sc-item'); if (!b) return;

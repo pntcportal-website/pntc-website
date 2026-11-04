@@ -8,3 +8,4 @@ dist/
 .wrangler/
 .dev.vars
 supabase/data-chat.sql
+supabase/pntc-supabase-complete.sql

@@ -97,11 +97,27 @@ the existing blog posts at the cover photos that were moved into the website. Th
 contains chat visitors' contact details) once in the SQL Editor. It creates every table and loads all the content.
 To create it from only the public parts instead, run `supabase/schema.sql`, then `supabase/data.sql`.
 
+**History table (current Supabase project only):** run `supabase/activity-log.sql` once in the SQL Editor.
+It creates the table behind the admin console's **History** screen. A new project gets it from the complete file.
+
 **Admin logins and access types:**
-1. Create the **first** login yourself in Supabase > Authentication > Users > Add user > Create new user
-   (email and password, tick Auto Confirm User). A login without an access type counts as Executive (Admin).
+1. The super admin is **`pntcportal@mypntc.edu.ph`**. Create it yourself in Supabase > Authentication > Users >
+   Add user > Create new user (email and password, tick Auto Confirm User). It always has full access, and no other
+   login can change, reset or remove it.
 2. Log in at `/admin` with it. Everyone else is added from the admin console's **Users** screen, which creates
-   their Supabase login and sets their access type (Executive, IT, Marketing, Academic or HR) in one step.
+   their Supabase login and sets their access type in one step:
+
+   | Access type | Can use |
+   |---|---|
+   | Executive (Admin) | Everything, including Users and History |
+   | Marketing, IT | Everything except Users and History |
+   | Academic | Only the College and SHS Academic Calendars |
+   | HR | Careers (job openings) and, in Site Content, the Careers and Leadership page texts |
+
+3. **History** (Executive only) lists every change saved in the admin console: who, when, which section and what
+   changed, newest first, with filters by user and section.
+
+Older logins with no access type set count as Executive (Admin) until one is chosen for them in Users.
 
 How the site protects the Supabase free tier (egress), for reference:
 * The chat box checks only for new messages, every 4 seconds while it is open, and stops in background tabs.

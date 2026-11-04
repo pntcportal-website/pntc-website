@@ -106,6 +106,22 @@ create table if not exists agent_status (
   last_seen   timestamptz default now()
 );
 
+-- ── History of changes (admin console > History) ────────────────────────
+-- one row per change saved in the admin console (who, when, which section, what changed)
+create table if not exists activity_log (
+  id          bigserial   primary key,
+  created_at  timestamptz not null default now(),
+  user_id     uuid,
+  user_email  text,
+  user_name   text,
+  role        text,
+  area        text,
+  action      text,
+  details     jsonb
+);
+create index if not exists activity_log_created_idx on activity_log (created_at desc);
+create index if not exists activity_log_user_idx    on activity_log (user_email, created_at desc);
+
 -- ── Security ────────────────────────────────────────────────────────────
 -- The website never talks to Supabase directly. Only the admin server does, with the service_role key,
 -- which bypasses these rules. Turning row level security on with no policies blocks everyone else.
@@ -117,6 +133,7 @@ alter table merchandise    enable row level security;
 alter table chat_sessions  enable row level security;
 alter table chat_messages  enable row level security;
 alter table agent_status   enable row level security;
+alter table activity_log   enable row level security;
 
 -- ── Image storage bucket ────────────────────────────────────────────────
 -- Used only by the older Images (Supabase) screen in the admin console. Blog cover photos and article
@@ -126,6 +143,6 @@ values ('site-images', 'site-images', true)
 on conflict (id) do nothing;
 
 -- ── Admin logins ────────────────────────────────────────────────────────
--- Logins are Supabase Auth users and cannot be created with SQL here.
+-- Logins are Supabase Auth users and cannot be created with SQL here. The super admin is pntcportal@mypntc.edu.ph.
 -- Add each admin in Authentication > Users > Add user > Create new user (email and password,
 -- tick "Auto Confirm User"). Then log in at /admin with that email and password.

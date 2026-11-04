@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PNTC Admin – History</title>
+<link rel="stylesheet" href="admin.css">
+<script src="access.js"></script>
+<style>
+.h-filters { display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; }
+.h-filters select { min-width:180px; padding:.4rem .6rem; font-size:.8rem; }
+.h-when { white-space:nowrap; }
+.h-area { display:inline-block; padding:.15rem .55rem; border-radius:99px; font-size:.68rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; background:rgba(122,139,168,.15); color:var(--text); white-space:nowrap; }
+.h-role { font-size:.7rem; color:var(--gold-lt); }
+.h-more { margin-top:1rem; text-align:center; }
+.h-msg { margin-top:.75rem; font-size:.82rem; color:#f87171; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <img src="/site-files/SHS/PNTC White Horizontal.png" alt="PNTC" onerror="this.style.display='none'">
+    <div class="sidebar-brand-sub">Admin Console</div>
+  </div>
+  <div class="sidebar-section-label">Navigation</div>
+  <nav class="sidebar-nav">
+    <a class="nav-item" href="index.html"><span class="nav-icon">🏠</span> Dashboard</a>
+    <a class="nav-item" href="posts.html"><span class="nav-icon">📝</span> Posts &amp; Blog</a>
+    <a class="nav-item" href="images.html"><span class="nav-icon">🖼️</span> Image Manager</a>
+    <a class="nav-item" href="landing.html"><span class="nav-icon">🏛️</span> Landing Page</a>
+    <a class="nav-item" href="content.html"><span class="nav-icon">✏️</span> Site Content</a>
+    <a class="nav-item" href="chat.html"><span class="nav-icon">💬</span> Live Chat</a>
+  </nav>
+  <div class="sidebar-bottom">
+    <strong>PNTC Admin</strong>
+    <button onclick="logout()" style="margin-top:.6rem;width:100%;padding:.45rem;background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.25);border-radius:5px;font-size:.75rem;font-weight:700;cursor:pointer;letter-spacing:.06em;text-transform:uppercase">Logout</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title">History</span>
+    <span class="topbar-sub">Every change saved in the admin console, newest first</span>
+  </div>
+
+  <div class="page-content">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Changes</span>
+        <div class="h-filters">
+          <select class="form-select" id="h-user"><option value="">All users</option></select>
+          <select class="form-select" id="h-area"><option value="">All sections</option></select>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr><th>When</th><th>Who</th><th>Section</th><th>Change</th></tr></thead>
+          <tbody id="h-rows"><tr><td colspan="4" class="td-muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="h-msg" id="h-msg"></div>
+      <div class="h-more"><button class="btn btn-ghost btn-sm" id="h-more" hidden>Load older changes</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const AREA_NAMES = { posts: 'Posts & Blog', images: 'Image Manager', content: 'Site Content', calendar: 'Academic Calendar', courses: 'Course list', careers: 'Careers', research: 'Research', directory: 'Directory', merchandise: 'Merchandise', users: 'Users' };
+const PAGE = 50;
+let rows = [], started = false;
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const when = d => new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+$('h-area').innerHTML += Object.entries(AREA_NAMES).map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join('');
+
+async function api(url) {
+  const r = await fetch(url);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Something went wrong (' + r.status + ').');
+  return d;
+}
+
+// one page of changes; "older" adds the next page below the rows already shown
+async function load(older) {
+  $('h-msg').textContent = '';
+  const q = new URLSearchParams({ limit: PAGE });
+  if ($('h-user').value) q.set('user', $('h-user').value);
+  if ($('h-area').value) q.set('area', $('h-area').value);
+  if (older && rows.length) q.set('before', rows[rows.length - 1].created_at);
+  try {
+    const d = await api('/api/history?' + q);
+    rows = older ? rows.concat(d.rows) : d.rows;
+    $('h-more').hidden = d.rows.length < PAGE;
+    render();
+  } catch (e) { $('h-msg').textContent = e.message; if (!older) $('h-rows').innerHTML = ''; }
+}
+
+function render() {
+  $('h-rows').innerHTML = rows.map(r => `<tr>
+    <td class="td-muted h-when">${when(r.created_at)}</td>
+    <td class="td-title">${esc(r.user_name || r.user_email)}<br><span class="td-muted">${esc(r.user_email)}</span> <span class="h-role">${esc(r.role)}</span></td>
+    <td><span class="h-area">${esc(AREA_NAMES[r.area] || r.area)}</span></td>
+    <td>${esc(r.action)}</td></tr>`).join('') || '<tr><td colspan="4" class="td-muted">No changes recorded yet.</td></tr>';
+}
+
+// the user filter lists every admin login
+async function loadUsers() {
+  try {
+    const d = await api('/api/users');
+    $('h-user').innerHTML = '<option value="">All users</option>' + d.users.map(u => `<option value="${esc(u.email)}">${esc(u.name ? u.name + ' (' + u.email + ')' : u.email)}</option>`).join('');
+  } catch (_) { /* the filter stays at All users */ }
+}
+
+$('h-user').onchange = $('h-area').onchange = () => load(false);
+$('h-more').onclick = () => load(true);
+
+function start() { if (started) return; started = true; load(false); loadUsers(); }
+document.addEventListener('pntc-access', start);
+if (window.PNTC_ME) start();
+
+async function logout() { await fetch('/api/auth/logout', { method: 'POST' }); location.href = '/admin/login.html'; }
+</script>
+</body>
+</html>

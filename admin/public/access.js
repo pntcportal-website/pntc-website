@@ -1,14 +1,14 @@
 /* Access types in the admin console.
    Shows each login only the screens its access type allows (the server checks every request as well),
-   adds the Users screen for Executive (Admin) logins, and shows who is logged in at the bottom of the menu. */
+   adds the Users and History screens for Executive (Admin) logins, and shows who is logged in at the bottom of the menu. */
 (function () {
   // which access areas open each screen (any one of them is enough)
   var PAGES = {
     'index.html': ['posts'], 'posts.html': ['posts'], 'editor.html': ['posts'], 'images.html': ['images'],
-    'landing.html': ['careers', 'research', 'directory', 'merchandise'], 'content.html': ['content', 'calendar'],
-    'chat.html': ['chat'], 'users.html': ['users'],
+    'landing.html': ['careers', 'research', 'directory', 'merchandise'], 'content.html': ['content', 'calendar', 'courses'],
+    'chat.html': ['chat'], 'users.html': ['users'], 'history.html': ['history'],
   };
-  var ORDER = ['index.html', 'posts.html', 'content.html', 'landing.html', 'images.html', 'chat.html', 'users.html'];
+  var ORDER = ['index.html', 'posts.html', 'content.html', 'landing.html', 'images.html', 'chat.html', 'users.html', 'history.html'];
   var page = (location.pathname.split('/').pop() || 'index.html').replace(/^$/, 'index.html');
   if (page === 'admin' || page === '') page = 'index.html';
 
@@ -51,20 +51,20 @@
         if (firstTab) firstTab.click();
       }
     }
-    // Site Content: calendars and the course list need "calendar", page texts need "content"
-    if (!has('calendar')) css.push('.sc-item[data-id="@calendar"],.sc-item[data-id="@shs-calendar"],.sc-item[data-id="@courses"]{display:none!important}');
+    // Site Content: the calendars need "calendar", the course list needs "courses", page texts need "content"
+    if (!has('calendar')) css.push('.sc-item[data-id="@calendar"],.sc-item[data-id="@shs-calendar"]{display:none!important}');
+    if (!has('courses')) css.push('.sc-item[data-id="@courses"]{display:none!important}');
 
-    // Users screen in the menu
-    if (has('users')) {
-      var nav = document.querySelector('.sidebar-nav');
-      if (nav && !nav.querySelector('a[href="users.html"]')) {
-        var link = document.createElement('a');
-        link.className = 'nav-item' + (page === 'users.html' ? ' active' : '');
-        link.href = 'users.html';
-        link.innerHTML = '<span class="nav-icon">👥</span> Users';
-        nav.appendChild(link);
-      }
-    }
+    // Users and History screens in the menu
+    var nav = document.querySelector('.sidebar-nav');
+    [['users', 'users.html', '👥', 'Users'], ['history', 'history.html', '🕘', 'History']].forEach(function (s) {
+      if (!has(s[0]) || !nav || nav.querySelector('a[href="' + s[1] + '"]')) return;
+      var link = document.createElement('a');
+      link.className = 'nav-item' + (page === s[1] ? ' active' : '');
+      link.href = s[1];
+      link.innerHTML = '<span class="nav-icon">' + s[2] + '</span> ' + s[3];
+      nav.appendChild(link);
+    });
 
     // who is logged in
     var box = document.querySelector('.sidebar-bottom');

@@ -120,19 +120,25 @@ app.use(express.json({ limit: '50mb' }));
 
 // ── Access types ───────────────────────────────────────────────
 // Each admin login is a Supabase Auth user. Its access type is kept in app_metadata.role, which only this
-// server (with the service_role key) can change. Logins made before access types existed count as Executive.
+// server (with the service_role key) can change.
+// The super admin login always has full access and cannot be changed or removed from the Users screen.
+const SUPER_ADMIN = 'pntcportal@mypntc.edu.ph';
+const ALL_AREAS = ['posts', 'images', 'careers', 'research', 'directory', 'merchandise', 'content', 'calendar', 'courses', 'chat', 'users', 'history'];
 const ROLES = {
   executive: { label: 'Executive (Admin)', areas: '*' },
-  it:        { label: 'IT',         areas: ['posts', 'images', 'careers', 'research', 'directory', 'merchandise', 'content', 'calendar', 'chat'] },
-  marketing: { label: 'Marketing',  areas: ['posts', 'images', 'merchandise', 'content', 'chat'] },
-  academic:  { label: 'Academic',   areas: ['posts', 'research', 'directory', 'content', 'calendar'] },
-  hr:        { label: 'HR',         areas: ['careers', 'directory', 'content'] },
+  marketing: { label: 'Marketing', areas: ALL_AREAS.filter(a => a !== 'users' && a !== 'history') },
+  it:        { label: 'IT',        areas: ALL_AREAS.filter(a => a !== 'users' && a !== 'history') },
+  academic:  { label: 'Academic',  areas: ['calendar'] },             // the College and SHS academic calendars
+  hr:        { label: 'HR',        areas: ['careers', 'content'] },   // Careers and Leadership (see HR_CONTENT)
 };
-// Site Content sections HR may edit (the Careers page). Everyone else with "content" may edit all of them.
-const HR_CONTENT = id => /career/i.test(id);
-const roleOf = user => (user && user.app_metadata && ROLES[user.app_metadata.role]) ? user.app_metadata.role : 'executive';
+// Site Content sections HR may edit: the Careers and Leadership pages. Marketing, IT and Executive may edit all.
+const HR_CONTENT = id => /career|leader/i.test(id);
+const isSuper = user => !!user && String(user.email || '').toLowerCase() === SUPER_ADMIN;
+// logins made before access types existed (no access type stored) keep full access until one is set in Users
+const roleOf = user => isSuper(user) ? 'executive' : (user && user.app_metadata && ROLES[user.app_metadata.role]) ? user.app_metadata.role : 'executive';
 const can = (role, area) => ROLES[role].areas === '*' || ROLES[role].areas.includes(area);
-const areasOf = role => ROLES[role].areas === '*' ? ['posts', 'images', 'careers', 'research', 'directory', 'merchandise', 'content', 'calendar', 'chat', 'users'] : ROLES[role].areas;
+const areasOf = role => ROLES[role].areas === '*' ? ALL_AREAS.slice() : ROLES[role].areas.slice();
+const labelOf = user => isSuper(user) ? 'Super Admin' : ROLES[roleOf(user)].label;
 
 // Which part of the admin console an API request belongs to. null means public (the website itself uses it).
 function areaFor(p) {
@@ -141,11 +147,14 @@ function areaFor(p) {
   if (/^\/api\/chat\/session\/[^/]+\/(message|messages|status)$/.test(p)) return null;               // visitor chat box
   if (p.startsWith('/api/chat/')) return 'chat';
   if (p.startsWith('/api/users')) return 'users';
+  if (p.startsWith('/api/history')) return 'history';
   if (p.startsWith('/api/posts') || p.startsWith('/api/publish') || p === '/api/upload/featured') return 'posts';
   if (p.startsWith('/api/images')) return 'images';
   const land = /^\/api\/landing\/(careers|research|directory|merchandise)\b/.exec(p);
   if (land) return land[1];
-  if (p === '/api/calendar' || p === '/api/shs-calendar' || p === '/api/training-courses') return 'calendar';
+  if (p === '/api/calendar' || p === '/api/shs-calendar') return 'calendar';
+  if (p === '/api/training-courses') return 'courses';
+  if (p === '/api/content/groups') return 'menu';             // the Site Content menu, filtered per access type
   if (p.startsWith('/api/content')) return 'content';
   return 'users';                                              // anything else defaults to Executive only
 }
@@ -159,6 +168,54 @@ async function currentUser(req) {
   } catch { return null; }
 }
 
+// ── History of changes ─────────────────────────────────────────
+// Every change made in the admin console is written to the activity_log table (one small row per change).
+// Executive logins read it on the History screen, 50 rows at a time.
+const CONTENT_GROUPS = require('./content').GROUPS;
+const LANDING_NAMES = { careers: 'Careers', research: 'Research', directory: 'Directory', merchandise: 'Merchandise' };
+function describe(req, area, p, body) {
+  const m = req.method, b = req.body || {}, q = s => `"${String(s || '').slice(0, 120)}"`;
+  if (area === 'posts') {
+    if (p === '/api/upload/featured') return 'Uploaded a photo for a blog post' + (body && body.filename ? ' (' + body.filename + ')' : '');
+    if (p.startsWith('/api/publish')) return 'Published blog post ' + q((body && body.post && body.post.title) || b.title || '');
+    if (m === 'POST') return 'Created blog post ' + q(b.title);
+    if (m === 'PUT') return 'Saved blog post ' + q(b.title);
+    if (m === 'DELETE') return 'Deleted a blog post';
+  }
+  if (area === 'images') return (/upload/.test(p) ? 'Uploaded image ' : 'Replaced image ') + q((req.file && req.file.originalname) || b.filename || p.split('/').pop());
+  if (LANDING_NAMES[area]) {
+    const what = LANDING_NAMES[area];
+    if (/\/publish$/.test(p)) return `Published the ${what} list to the website`;
+    if (m === 'POST') return `Added to ${what}: ` + q(b.title || b.name);
+    if (m === 'PUT') return `Edited in ${what}: ` + q(b.title || b.name);
+    if (m === 'DELETE') return `Removed an item from ${what}`;
+  }
+  if (area === 'content') {
+    const id = decodeURIComponent(p.split('/').pop()), g = CONTENT_GROUPS.find(x => x.id === id);
+    return 'Saved Site Content: ' + (g ? `${g.site}, ${g.title}` : id);
+  }
+  if (area === 'calendar') return `Published the ${p.includes('shs') ? 'Senior High School' : 'College'} academic calendar`;
+  if (area === 'courses') return 'Saved the Training Center course list';
+  if (area === 'users') {
+    if (/reset-password$/.test(p)) return 'Created a new password for ' + (req.targetEmail || 'a user');
+    if (m === 'POST') return `Added user ${b.email} as ${(ROLES[b.role] || {}).label || b.role}`;
+    if (m === 'PUT') return `Changed user ${req.targetEmail || ''}` + (b.role ? ` to ${(ROLES[b.role] || {}).label}` : '') + (b.name !== undefined ? ' (name)' : '');
+    if (m === 'DELETE') return 'Removed user ' + (req.targetEmail || '');
+  }
+  return `${m} ${p}`;
+}
+async function logActivity(req, area, p, body) {
+  try {
+    await supabase.from('activity_log').insert({
+      user_id: req.user.id, user_email: req.user.email,
+      user_name: (req.user.user_metadata && req.user.user_metadata.name) || '',
+      role: labelOf(req.user), area, action: describe(req, area, p, body),
+      details: { method: req.method, path: p, files: body && body.changed ? body.changed : undefined },
+    });
+  } catch (_) { /* the history must never block a save */ }
+}
+const LOGGED = new Set(['posts', 'images', 'careers', 'research', 'directory', 'merchandise', 'content', 'calendar', 'courses', 'users']);
+
 // Every admin API request needs a login with the right access type
 app.use('/api', async (req, res, next) => {
   const p = req.baseUrl + req.path;
@@ -167,12 +224,21 @@ app.use('/api', async (req, res, next) => {
   const user = await currentUser(req);
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
   const role = roleOf(user);
-  req.user = user; req.role = role;
-  req.canContentGroup = id => role !== 'hr' || HR_CONTENT(id);
-  const denied = () => res.status(403).json({ error: `Your access type (${ROLES[role].label}) does not include this section.` });
+  req.user = user; req.role = role; req.can = a => can(role, a);
+  req.canContentGroup = id => can(role, 'content') && (role !== 'hr' || HR_CONTENT(id));
+  const denied = () => res.status(403).json({ error: `Your access type (${labelOf(user)}) does not include this section.` });
+  if (area === 'menu') return ['content', 'calendar', 'courses'].some(a => can(role, a)) ? next() : denied();
   if (!can(role, area)) return denied();
   const group = /^\/api\/content\/([^/]+)$/.exec(p);
-  if (group && group[1] !== 'groups' && !req.canContentGroup(decodeURIComponent(group[1]))) return denied();
+  if (group && !req.canContentGroup(decodeURIComponent(group[1]))) return denied();
+  // record successful changes in the history (written before the answer is sent, so nothing is lost)
+  if (req.method !== 'GET' && LOGGED.has(area)) {
+    const send = res.json.bind(res);
+    res.json = body => {
+      if (res.statusCode < 400 && !(body && body.error)) { logActivity(req, area, p, body).finally(() => send(body)); return res; }
+      return send(body);
+    };
+  }
   next();
 });
 
@@ -829,7 +895,7 @@ app.get('/api/auth/me', async (req, res) => {
   const user = await currentUser(req);
   if (!user) return res.status(401).json({ ok: false });
   const role = roleOf(user);
-  res.json({ ok: true, id: user.id, email: user.email, name: (user.user_metadata && user.user_metadata.name) || '', role, label: ROLES[role].label, areas: areasOf(role), hrContentOnly: role === 'hr' });
+  res.json({ ok: true, id: user.id, email: user.email, name: (user.user_metadata && user.user_metadata.name) || '', role, label: labelOf(user), superAdmin: isSuper(user), areas: areasOf(role), hrContentOnly: role === 'hr' });
 });
 
 // ── Users (Executive only, checked by the access middleware) ──────
@@ -838,7 +904,7 @@ const authAdmin = (path, opts = {}) => fetch(`${GOTRUE_URL}/admin/users${path}`,
   ...opts, headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', ...(opts.headers || {}) },
 });
 const authErr = async r => { try { const d = await r.json(); return d.msg || d.message || d.error_description || d.error || `Supabase ${r.status}`; } catch { return `Supabase ${r.status}`; } };
-const publicUser = u => ({ id: u.id, email: u.email, name: (u.user_metadata && u.user_metadata.name) || '', role: roleOf(u), label: ROLES[roleOf(u)].label, created_at: u.created_at, last_sign_in_at: u.last_sign_in_at || null });
+const publicUser = u => ({ id: u.id, email: u.email, name: (u.user_metadata && u.user_metadata.name) || '', role: roleOf(u), label: labelOf(u), superAdmin: isSuper(u), created_at: u.created_at, last_sign_in_at: u.last_sign_in_at || null });
 const makePassword = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
   const bytes = require('crypto').randomBytes(12);
@@ -855,21 +921,35 @@ async function allUsers() {
   }
   return out;
 }
+// the login a change is about (also named in the history); only the super admin may change the super admin
+async function target(req, res) {
+  const r = await authAdmin(`/${encodeURIComponent(req.params.id)}`);
+  if (!r.ok) { res.status(404).json({ error: 'Login not found.' }); return null; }
+  const u = await r.json();
+  req.targetEmail = u.email;
+  if (isSuper(u) && !isSuper(req.user)) { res.status(403).json({ error: 'Only the super admin can change the super admin login.' }); return null; }
+  return u;
+}
 
 app.get('/api/users', async (_req, res) => {
-  try { res.json({ users: (await allUsers()).map(publicUser), roles: Object.entries(ROLES).map(([id, r]) => ({ id, label: r.label, areas: areasOf(id) })) }); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  try {
+    const users = (await allUsers()).map(publicUser).sort((a, b) => (b.superAdmin - a.superAdmin) || (a.name || a.email).localeCompare(b.name || b.email));
+    res.json({ users, superAdmin: SUPER_ADMIN, roles: Object.entries(ROLES).map(([id, r]) => ({ id, label: r.label, areas: areasOf(id) })) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/users', async (req, res) => {
-  const { name = '', email = '', role = '', password = '' } = req.body || {};
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return res.status(400).json({ error: 'Enter a valid email address.' });
+  const { name = '', email = '', password = '' } = req.body || {};
+  let { role = '' } = req.body || {};
+  const mail = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return res.status(400).json({ error: 'Enter a valid email address.' });
+  if (mail === SUPER_ADMIN) role = 'executive';
   if (!ROLES[role]) return res.status(400).json({ error: 'Choose an access type.' });
   if (password && password.length < 8) return res.status(400).json({ error: 'The password needs at least 8 characters.' });
   const pass = password || makePassword();
   try {
     const r = await authAdmin('', { method: 'POST', body: JSON.stringify({
-      email: email.trim().toLowerCase(), password: pass, email_confirm: true,
+      email: mail, password: pass, email_confirm: true,
       user_metadata: { name: name.trim() }, app_metadata: { role },
     }) });
     if (!r.ok) return res.status(400).json({ error: await authErr(r) });
@@ -883,11 +963,9 @@ app.put('/api/users/:id', async (req, res) => {
   if (role !== undefined && !ROLES[role]) return res.status(400).json({ error: 'Choose an access type.' });
   if (password && password.length < 8) return res.status(400).json({ error: 'The password needs at least 8 characters.' });
   try {
+    const u = await target(req, res); if (!u) return;
+    if (role && isSuper(u)) return res.status(400).json({ error: 'The super admin always has full access.' });
     if (role && role !== 'executive' && req.params.id === req.user.id) return res.status(400).json({ error: 'You cannot remove your own Executive access.' });
-    if (role && role !== 'executive') {
-      const execs = (await allUsers()).filter(u => roleOf(u) === 'executive');
-      if (execs.length === 1 && execs[0].id === req.params.id) return res.status(400).json({ error: 'There must be at least one Executive (Admin) login.' });
-    }
     const body = {};
     if (name !== undefined) body.user_metadata = { name: String(name).trim() };
     if (role) body.app_metadata = { role };
@@ -900,6 +978,7 @@ app.put('/api/users/:id', async (req, res) => {
 
 app.post('/api/users/:id/reset-password', async (req, res) => {
   try {
+    const u = await target(req, res); if (!u) return;
     const pass = makePassword();
     const r = await authAdmin(`/${encodeURIComponent(req.params.id)}`, { method: 'PUT', body: JSON.stringify({ password: pass }) });
     if (!r.ok) return res.status(400).json({ error: await authErr(r) });
@@ -910,13 +989,26 @@ app.post('/api/users/:id/reset-password', async (req, res) => {
 app.delete('/api/users/:id', async (req, res) => {
   if (req.params.id === req.user.id) return res.status(400).json({ error: 'You cannot remove your own login.' });
   try {
-    const users = await allUsers();
-    const target = users.find(u => u.id === req.params.id);
-    if (!target) return res.status(404).json({ error: 'Login not found.' });
-    if (roleOf(target) === 'executive' && users.filter(u => roleOf(u) === 'executive').length === 1) return res.status(400).json({ error: 'There must be at least one Executive (Admin) login.' });
+    const u = await target(req, res); if (!u) return;
+    if (isSuper(u)) return res.status(400).json({ error: 'The super admin login cannot be removed.' });
     const r = await authAdmin(`/${encodeURIComponent(req.params.id)}`, { method: 'DELETE' });
     if (!r.ok) return res.status(400).json({ error: await authErr(r) });
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── History (Executive only) ─────────────────────────────────────
+// Newest first, 50 at a time. ?before=<time of the last row shown> loads the next 50.
+app.get('/api/history', async (req, res) => {
+  try {
+    let q = supabase.from('activity_log').select('id,created_at,user_email,user_name,role,area,action')
+      .order('created_at', { ascending: false }).limit(Math.min(parseInt(req.query.limit) || 50, 100));
+    if (req.query.before) q = q.lt('created_at', req.query.before);
+    if (req.query.user) q = q.eq('user_email', req.query.user);
+    if (req.query.area) q = q.eq('area', req.query.area);
+    const { data, error } = await q;
+    if (error) throw new Error(/activity_log/.test(error.message) ? 'The history table is missing. Run supabase/activity-log.sql once in Supabase.' : error.message);
+    res.json({ rows: data || [] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

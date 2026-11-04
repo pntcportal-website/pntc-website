@@ -120,8 +120,8 @@
 </div>
 
 <script>
-const AREA_NAMES = { posts: 'Posts & Blog', images: 'Image Manager', content: 'Site Content', calendar: 'Academic Calendars and Training Courses', careers: 'Careers', research: 'Research', directory: 'Directory', merchandise: 'Merchandise', chat: 'Live Chat', users: 'Users' };
-let roles = [], users = [], me = null;
+const AREA_NAMES = { posts: 'Posts & Blog', images: 'Image Manager', content: 'Site Content', calendar: 'Academic Calendars (College and SHS)', courses: 'Training Center course list', careers: 'Careers', research: 'Research', directory: 'Directory', merchandise: 'Merchandise', chat: 'Live Chat', users: 'Users', history: 'History of changes' };
+let roles = [], users = [], me = null, superAdmin = '';
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const when = d => d ? new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never';
@@ -137,7 +137,7 @@ async function api(url, opts) {
 async function load() {
   try {
     const d = await api('/api/users');
-    roles = d.roles; users = d.users.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
+    roles = d.roles; users = d.users; superAdmin = d.superAdmin;
     render();
   } catch (e) { msg('u-list-msg', e.message); $('u-rows').innerHTML = ''; }
 }
@@ -149,17 +149,18 @@ function roleSelect(value, attrs) {
 function render() {
   $('u-count').textContent = users.length + (users.length === 1 ? ' login' : ' logins');
   if (!$('u-role').options.length) $('u-role').innerHTML = '<option value="">Choose…</option>' + roles.map(r => `<option value="${r.id}">${esc(r.label)}</option>`).join('');
-  $('u-legend').innerHTML = roles.map(r => `<div><span class="u-role ${r.id}">${esc(r.label)}</span><br>${r.areas.map(a => esc(AREA_NAMES[a] || a)).join(', ')}${r.id === 'hr' ? ' (Careers page texts only in Site Content)' : ''}</div>`).join('');
+  $('u-legend').innerHTML = `<div><span class="u-role executive">Super Admin</span><br>${esc(superAdmin)} has full access, like Executive (Admin). This login cannot be changed or removed by others.</div>` + roles.map(r => `<div><span class="u-role ${r.id}">${esc(r.label)}</span><br>${r.areas.map(a => esc(AREA_NAMES[a] || a)).join(', ')}${r.id === 'hr' ? ' (in Site Content, only the Careers and Leadership page texts)' : ''}</div>`).join('');
   $('u-rows').innerHTML = users.map(u => {
     const you = me && u.id === me.id;
+    // the super admin login is locked, and only the super admin can rename it or change its password
+    const locked = u.superAdmin, mine = !locked || (me && me.superAdmin);
     return `<tr data-id="${u.id}">
       <td class="td-title">${esc(u.name || '(no name)')}${you ? '<span class="u-you">you</span>' : ''}<br><span class="td-muted">${esc(u.email)}</span></td>
-      <td>${you ? `<span class="u-role ${u.role}">${esc(u.label)}</span>` : roleSelect(u.role, 'data-act="role"')}</td>
+      <td>${you || locked ? `<span class="u-role ${u.role}">${esc(u.label)}</span>` : roleSelect(u.role, 'data-act="role"')}</td>
       <td class="td-muted">${when(u.last_sign_in_at)}</td>
       <td><div class="u-actions">
-        <button class="btn btn-ghost btn-sm" data-act="rename">Rename</button>
-        <button class="btn btn-ghost btn-sm" data-act="reset">New password</button>
-        ${you ? '' : '<button class="btn btn-danger btn-sm" data-act="remove">Remove</button>'}
+        ${mine ? '<button class="btn btn-ghost btn-sm" data-act="rename">Rename</button><button class="btn btn-ghost btn-sm" data-act="reset">New password</button>' : ''}
+        ${you || locked ? '' : '<button class="btn btn-danger btn-sm" data-act="remove">Remove</button>'}
       </div></td></tr>`;
   }).join('') || '<tr><td colspan="4" class="td-muted">No logins yet.</td></tr>';
 }
