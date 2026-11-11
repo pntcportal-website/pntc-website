@@ -1290,11 +1290,13 @@ app.post('/api/chat/session/:id/transfer', async (req, res) => {
 
 // Visitor: start / resume session
 app.post('/api/chat/session', async (req, res) => {
-  const { site, visitorName, visitorEmail, visitorContact, concernType, concernBackground } = req.body;
+  const { site, area, visitorName, visitorEmail, visitorContact, concernType, concernBackground } = req.body;
+  // the visitor says whether the inquiry is for the College or the Training Center, which picks the team
+  const routeSite = area === 'training' ? 'maritime' : area === 'college' ? 'colleges' : (site || 'main');
   try {
     const row = {
       site: site || 'main',
-      department: deptForSite(await chatDepartments(), site || 'main'),
+      department: deptForSite(await chatDepartments(), routeSite),
       visitor_name: visitorName || 'Visitor',
       visitor_email: visitorEmail || null,
       visitor_contact: visitorContact || null,

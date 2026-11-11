@@ -14,7 +14,13 @@
   #agent-chip { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.08); border-radius: 20px; padding: 5px 12px 5px 8px; font-size: .78rem; color: var(--text); font-weight: 600; cursor: pointer; border: 1.5px solid rgba(255,255,255,.15); transition: background .15s; }
   #agent-chip:hover { background: rgba(255,255,255,.13); }
   #agent-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; }
-  .topbar-status { font-size: .78rem; color: var(--muted); }
+  .topbar-status { font-size: .78rem; color: var(--muted); white-space: nowrap; }
+  .topbar { justify-content: space-between; }
+  .topbar-left, .topbar-right { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .topbar-right { flex-wrap: wrap; justify-content: flex-end; }
+  /* the conversation list is a white panel: dark text on it */
+  .session-list { color: #1a1f36; }
+  .session-list-header h2, .session-name { color: #1a1f36; }
 
   /* ── Chat layout ── */
   .chat-layout { flex: 1; display: flex; overflow: hidden; }

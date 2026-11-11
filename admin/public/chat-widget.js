@@ -202,6 +202,13 @@
 
     <div class="pw-section">
       <div class="pw-field">
+        <label class="pw-label">Inquiring About <span class="pw-req">*</span></label>
+        <div class="pw-chips" id="pw-area">
+          <button class="pw-chip" data-v="college">College or Senior High School</button>
+          <button class="pw-chip" data-v="training">Training Center</button>
+        </div>
+      </div>
+      <div class="pw-field">
         <label class="pw-label">Enquiry Type <span class="pw-req">*</span></label>
         <div class="pw-chips" id="pw-chips">
           <button class="pw-chip" data-v="admission">Admission</button>
@@ -272,6 +279,18 @@
   var badge    = document.getElementById('pw-badge');
 
   var chosen = null;
+
+  /* ─── College or Training Center (decides which team receives the chat) ─── */
+  var area = SITE === 'maritime' || SITE === 'aman' ? 'training' : SITE === 'colleges' || SITE === 'shs' ? 'college' : null;
+  var areaChips = document.querySelectorAll('#pw-area .pw-chip');
+  areaChips.forEach(function (c) {
+    if (c.dataset.v === area) c.classList.add('on');
+    c.addEventListener('click', function () {
+      areaChips.forEach(function (x) { x.classList.remove('on'); });
+      c.classList.add('on');
+      area = c.dataset.v;
+    });
+  });
 
   /* ─── Chips ──────────────────────────────────────────────── */
   chips.forEach(function (c) {
@@ -372,7 +391,7 @@
 
   /* ─── API ────────────────────────────────────────────────── */
   async function createSession(f) {
-    var r = await fetch(API+'/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({site:SITE,visitorName:f.name,visitorEmail:f.email,visitorContact:f.phone,concernType:f.concern,concernBackground:f.bg})});
+    var r = await fetch(API+'/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({site:SITE,area:f.area,visitorName:f.name,visitorEmail:f.email,visitorContact:f.phone,concernType:f.concern,concernBackground:f.bg})});
     var d = await r.json();
     if (!d.sessionId) throw new Error(d.error || 'Session creation failed');
     sessionId = d.sessionId;
@@ -443,13 +462,14 @@
     if (!name)    { showErr('Please enter your full name.'); nameEl.focus(); return; }
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr('Please enter a valid email address.'); emailEl.focus(); return; }
     if (!phone)   { showErr('Please enter your contact number.'); phoneEl.focus(); return; }
+    if (!area)    { showErr('Please choose if your inquiry is about the College or the Training Center.'); return; }
     if (!chosen)  { showErr('Please select an enquiry type.'); return; }
     submitEl.disabled = true; submitEl.textContent = 'Starting…';
     try {
-      await createSession({name,email,phone,concern:chosen,bg});
+      await createSession({name,email,phone,concern:chosen,bg,area});
       showChatUI(name);
       var label = {admission:'Admission',registrar:'Registrar',finance:'Finance',academics:'Academics',other:'General Enquiry'}[chosen]||chosen;
-      await sendMsg('Inquiry about '+label+(bg?'\n\n'+bg:''));
+      await sendMsg('Inquiry about '+label+' ('+(area==='training'?'Training Center':'College or Senior High School')+')'+(bg?'\n\n'+bg:''));
       await poll();
     } catch(e) {
       submitEl.disabled = false; submitEl.textContent = 'Start Chat';
