@@ -459,7 +459,7 @@
 
   /* ─── Agent online label ─────────────────────────────────── */
   function checkAgentOnline() {
-    fetch(API + '/agent-status')
+    fetch(API + '/agent-status?site=' + encodeURIComponent(SITE))
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (d.online && d.agentName && !isOpen) {

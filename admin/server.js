@@ -134,6 +134,7 @@ const ROLES = {
   it:        { label: 'IT',        areas: ALL_AREAS.filter(a => a !== 'users' && a !== 'history') },
   academic:  { label: 'Academic',  areas: ['calendar'] },             // the College and SHS academic calendars
   hr:        { label: 'HR',        areas: ['careers', 'content'] },   // Careers and Leadership (see HR_CONTENT)
+  chat:      { label: 'Live Chat',  areas: ['chat'] },                // answering chats only (Training Center, Registrar, Finance ...)
 };
 // Site Content sections HR may edit: the Careers and Leadership pages. Marketing, IT and Executive may edit all.
 const HR_CONTENT = id => /career|leader/i.test(id);
@@ -1194,21 +1195,118 @@ async function requireAuth(req, res, next) {
 //  Live Chat API
 // ══════════════════════════════════════════════════════════════
 
+// ── Chat departments, office hours and offline replies ───────────
+// Each chat belongs to a department (College Marketing, Training Center Marketing, Registrar, Finance ...).
+// New chats go to the department whose "sites" include the website they came from. Agents pick their
+// department when they enter Live Chat and see only its chats, and can transfer a chat to another department.
+// A visitor message outside the department's office hours (Philippine time) gets the offline reply once.
+const DEFAULT_DEPTS = [
+  { id: 'college-marketing', name: 'College Marketing', sites: ['colleges', 'shs', 'main'], days: [1, 2, 3, 4, 5], open_time: '07:00', close_time: '17:30', sort: 1,
+    offline_message: 'Thank you for your message. Our team is offline right now. Our office hours are Monday to Friday, 7:00 AM to 5:30 PM. We will call you on the next business day, or you may continue this chat once we are back.' },
+  { id: 'training-marketing', name: 'Training Center Marketing', sites: ['maritime', 'aman'], days: [1, 2, 3, 4, 5, 6], open_time: '08:00', close_time: '17:30', sort: 2,
+    offline_message: 'Thank you for your message. Our team is offline right now. Our office hours are Monday to Saturday, 8:00 AM to 5:30 PM. We will call you on the next business day, or you may continue this chat once we are back.' },
+];
+let deptCache = null, deptAt = 0;
+async function chatDepartments(fresh) {
+  if (!fresh && deptCache && Date.now() - deptAt < 60000) return deptCache;
+  const { data, error } = await supabase.from('chat_departments').select('*').order('sort', { ascending: true });
+  deptCache = !error && data && data.length ? data : DEFAULT_DEPTS;
+  deptAt = Date.now();
+  return deptCache;
+}
+const deptForSite = (depts, site) => (depts.find(d => (d.sites || []).includes(site)) || depts[0] || {}).id || 'college-marketing';
+// open right now? (office days and hours are in Philippine time)
+function inOfficeHours(d, now = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    .formatToParts(now).map(x => [x.type, x.value]));
+  const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.weekday);
+  const t = p.hour + ':' + p.minute;
+  return (d.days || []).includes(day) && t >= (d.open_time || '00:00') && t < (d.close_time || '23:59');
+}
+// sends the department's offline reply when a visitor writes outside office hours (once per 12 hours per chat)
+async function offlineReply(sessionId) {
+  try {
+    const { data: s } = await supabase.from('chat_sessions').select('site,department').eq('id', sessionId).maybeSingle();
+    if (!s) return;
+    const depts = await chatDepartments();
+    const d = depts.find(x => x.id === s.department) || depts.find(x => x.id === deptForSite(depts, s.site));
+    if (!d || !d.offline_message || inOfficeHours(d)) return;
+    const since = new Date(Date.now() - 12 * 3600 * 1000).toISOString();
+    const { data: sent } = await supabase.from('chat_messages').select('id').eq('session_id', sessionId).eq('sender', 'system').eq('message', d.offline_message).gt('created_at', since).limit(1);
+    if (sent && sent.length) return;
+    await supabase.from('chat_messages').insert({ session_id: sessionId, sender: 'system', message: d.offline_message, read: true });
+  } catch (_) { /* the visitor's message is already saved */ }
+}
+
+app.get('/api/chat/departments', async (_req, res) => {
+  try { res.json(await chatDepartments(true)); } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// saving the department list and office hours (not for Live Chat only logins)
+app.put('/api/chat/departments', async (req, res) => {
+  if (req.role === 'chat') return res.status(403).json({ error: 'Your access type cannot change the departments.' });
+  const list = Array.isArray(req.body) ? req.body : [];
+  const rows = list.slice(0, 30).map((d, i) => ({
+    id: String(d.id || d.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'dept-' + (i + 1),
+    name: String(d.name || '').trim().slice(0, 80) || 'Department ' + (i + 1),
+    sites: (Array.isArray(d.sites) ? d.sites : []).filter(x => ['colleges', 'shs', 'main', 'maritime', 'aman'].includes(x)),
+    days: (Array.isArray(d.days) ? d.days : []).map(Number).filter(n => n >= 0 && n <= 6),
+    open_time: /^\d\d:\d\d$/.test(d.open_time) ? d.open_time : '08:00',
+    close_time: /^\d\d:\d\d$/.test(d.close_time) ? d.close_time : '17:00',
+    offline_message: String(d.offline_message || '').trim().slice(0, 1000),
+    sort: i + 1,
+  }));
+  if (!rows.length) return res.status(400).json({ error: 'Keep at least one department.' });
+  if (new Set(rows.map(r => r.id)).size !== rows.length) return res.status(400).json({ error: 'Two departments have the same name.' });
+  try {
+    const { error } = await supabase.from('chat_departments').upsert(rows, { onConflict: 'id' });
+    if (error) throw new Error(/chat_departments/.test(error.message) ? 'The departments table is missing. Run supabase/chat-departments.sql once in Supabase.' : error.message);
+    const keep = rows.map(r => r.id);
+    const { data: all } = await supabase.from('chat_departments').select('id');
+    const gone = (all || []).map(r => r.id).filter(id => !keep.includes(id));
+    if (gone.length) {
+      await supabase.from('chat_departments').delete().in('id', gone);
+      // chats of a removed department go to the first one
+      await supabase.from('chat_sessions').update({ department: keep[0], updated_at: new Date().toISOString() }).in('department', gone);
+    }
+    res.json(await chatDepartments(true));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// moving a chat to another department; the visitor is told in the chat
+app.post('/api/chat/session/:id/transfer', async (req, res) => {
+  const { department, agentName } = req.body || {};
+  try {
+    const depts = await chatDepartments();
+    const d = depts.find(x => x.id === department);
+    if (!d) return res.status(400).json({ error: 'Choose a department.' });
+    const { error } = await supabase.from('chat_sessions').update({ department: d.id, status: 'open', updated_at: new Date().toISOString() }).eq('id', req.params.id);
+    if (error) throw error;
+    await supabase.from('chat_messages').insert({ session_id: req.params.id, sender: 'system', read: true,
+      message: `This chat has been transferred to ${d.name}${agentName ? ' by ' + String(agentName).trim().slice(0, 60) : ''}. Please wait for their reply.` });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Visitor: start / resume session
 app.post('/api/chat/session', async (req, res) => {
   const { site, visitorName, visitorEmail, visitorContact, concernType, concernBackground } = req.body;
   try {
-    const { data, error } = await supabase
-      .from('chat_sessions')
-      .insert({
-        site: site || 'main',
-        visitor_name: visitorName || 'Visitor',
-        visitor_email: visitorEmail || null,
-        visitor_contact: visitorContact || null,
-        concern_type: concernType || null,
-        concern_background: concernBackground || null
-      })
-      .select('id,visitor_name,site').single();
+    const row = {
+      site: site || 'main',
+      department: deptForSite(await chatDepartments(), site || 'main'),
+      visitor_name: visitorName || 'Visitor',
+      visitor_email: visitorEmail || null,
+      visitor_contact: visitorContact || null,
+      concern_type: concernType || null,
+      concern_background: concernBackground || null
+    };
+    let { data, error } = await supabase.from('chat_sessions').insert(row).select('id,visitor_name,site').single();
+    // before supabase/chat-departments.sql is run there is no department column yet
+    if (error && /department/.test(error.message)) {
+      delete row.department;
+      ({ data, error } = await supabase.from('chat_sessions').insert(row).select('id,visitor_name,site').single());
+    }
     if (error) throw error;
     res.json({ sessionId: data.id, visitorName: data.visitor_name });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1224,6 +1322,7 @@ app.post('/api/chat/session/:id/message', async (req, res) => {
     });
     if (error) throw error;
     await supabase.from('chat_sessions').update({ updated_at: new Date().toISOString() }).eq('id', req.params.id);
+    await offlineReply(req.params.id);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1251,13 +1350,15 @@ app.get('/api/chat/sessions', requireAuth, async (req, res) => {
     // Kept small for the Supabase free tier: the 100 most recent chats, and two queries in total
     // (latest messages and unread visitor messages for all of them) instead of two per chat.
     // ?since=<newest updated_at the screen has> returns only the chats that changed after it (usually none).
-    let sq = supabase
-      .from('chat_sessions')
-      .select('id,visitor_name,visitor_email,visitor_contact,concern_type,concern_background,site,status,created_at,updated_at')
-      .order('updated_at', { ascending: false })
-      .limit(100);
-    if (req.query.since) sq = sq.gt('updated_at', req.query.since);
-    const { data: sessions, error } = await sq;
+    const list = (cols, dept) => {
+      let sq = supabase.from('chat_sessions').select(cols).order('updated_at', { ascending: false }).limit(100);
+      if (req.query.since) sq = sq.gt('updated_at', req.query.since);
+      else if (dept && req.query.dept) sq = sq.eq('department', req.query.dept);
+      return sq;
+    };
+    let { data: sessions, error } = await list('id,visitor_name,visitor_email,visitor_contact,concern_type,concern_background,site,department,status,created_at,updated_at', true);
+    // before supabase/chat-departments.sql is run there is no department column: every chat is listed
+    if (error && /department/.test(error.message)) ({ data: sessions, error } = await list('id,visitor_name,visitor_email,visitor_contact,concern_type,concern_background,site,status,created_at,updated_at', false));
     if (error) throw error;
     const ids = (sessions || []).map(s => s.id);
     const last = {}, unread = {};
@@ -1323,12 +1424,13 @@ app.post('/api/chat/session/:id/status', async (req, res) => {
 
 // Agent heartbeat — called every 60s while admin has chat.html open
 app.post('/api/chat/agent-heartbeat', async (req, res) => {
-  const { agentName } = req.body;
+  const { agentName, department } = req.body;
   if (!agentName?.trim()) return res.status(400).json({ error: 'Name required' });
   try {
-    const { error } = await supabase
-      .from('agent_status')
-      .upsert({ agent_name: agentName.trim(), last_seen: new Date().toISOString() }, { onConflict: 'agent_name' });
+    const row = { agent_name: agentName.trim(), last_seen: new Date().toISOString() };
+    if (department) row.department = String(department).slice(0, 40);
+    let { error } = await supabase.from('agent_status').upsert(row, { onConflict: 'agent_name' });
+    if (error && row.department) ({ error } = await supabase.from('agent_status').upsert({ agent_name: row.agent_name, last_seen: row.last_seen }, { onConflict: 'agent_name' }));
     if (error) return res.status(500).json({ error: error.message });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1343,16 +1445,19 @@ app.post('/api/chat/agent-offline', async (req, res) => {
   } catch (e) { res.json({ ok: true }); }
 });
 
-// Public: any agent online in last 3 minutes?
+// Public: is an agent of this website's department online (seen in the last 3 minutes)? ?site=<website>
 app.get('/api/chat/agent-status', async (req, res) => {
   try {
     const cutoff = new Date(Date.now() - 3 * 60 * 1000).toISOString();
-    const { data } = await supabase
+    let q = supabase
       .from('agent_status')
       .select('agent_name, last_seen')
       .gt('last_seen', cutoff)
       .order('last_seen', { ascending: false })
       .limit(1);
+    if (req.query.site) q = q.eq('department', deptForSite(await chatDepartments(), String(req.query.site)));
+    let { data, error } = await q;
+    if (error) ({ data } = await supabase.from('agent_status').select('agent_name, last_seen').gt('last_seen', cutoff).order('last_seen', { ascending: false }).limit(1));
     if (data && data.length > 0) {
       res.json({ online: true, agentName: data[0].agent_name });
     } else {

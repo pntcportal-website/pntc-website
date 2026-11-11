@@ -144,6 +144,38 @@ create index if not exists job_applications_career_idx  on job_applications (car
 alter table careers add column if not exists status text default 'open';
 alter table careers add column if not exists form   jsonb;
 
+-- ── Live chat departments, office hours and offline replies ─────────────
+-- the teams that answer chats. "sites" are the websites whose chats go to the team first.
+create table if not exists chat_departments (
+  id               text        primary key,
+  name             text        not null,
+  sites            text[]      default '{}',       -- colleges, shs, main, maritime, aman
+  days             int[]       default '{1,2,3,4,5}', -- office days, 0 = Sunday ... 6 = Saturday (Philippine time)
+  open_time        text        default '08:00',
+  close_time       text        default '17:00',
+  offline_message  text,
+  sort             int         default 0
+);
+
+insert into chat_departments (id, name, sites, days, open_time, close_time, offline_message, sort) values
+  ('college-marketing',  'College Marketing',         '{colleges,shs,main}', '{1,2,3,4,5}',   '07:00', '17:30',
+   'Thank you for your message. Our team is offline right now. Our office hours are Monday to Friday, 7:00 AM to 5:30 PM. We will call you on the next business day, or you may continue this chat once we are back.', 1),
+  ('training-marketing', 'Training Center Marketing', '{maritime,aman}',     '{1,2,3,4,5,6}', '08:00', '17:30',
+   'Thank you for your message. Our team is offline right now. Our office hours are Monday to Saturday, 8:00 AM to 5:30 PM. We will call you on the next business day, or you may continue this chat once we are back.', 2),
+  ('college-registrar',  'College Registrar',         '{}',                  '{1,2,3,4,5}',   '07:00', '17:30',
+   'Thank you for your message. The Registrar is offline right now. Our office hours are Monday to Friday, 7:00 AM to 5:30 PM. We will call you on the next business day, or you may continue this chat once we are back.', 3),
+  ('finance',            'Finance',                   '{}',                  '{1,2,3,4,5}',   '07:00', '17:30',
+   'Thank you for your message. Our Finance office is offline right now. Our office hours are Monday to Friday, 7:00 AM to 5:30 PM. We will call you on the next business day, or you may continue this chat once we are back.', 4)
+on conflict (id) do nothing;
+
+-- each chat belongs to one department, and each online agent says which department they answer for
+alter table chat_sessions add column if not exists department text;
+alter table agent_status  add column if not exists department text;
+update chat_sessions set department = case when site in ('maritime', 'aman') then 'training-marketing' else 'college-marketing' end
+ where department is null;
+create index if not exists chat_sessions_dept_idx on chat_sessions (department, updated_at desc);
+
+
 -- ── Security ────────────────────────────────────────────────────────────
 -- The website never talks to Supabase directly. Only the admin server does, with the service_role key,
 -- which bypasses these rules. Turning row level security on with no policies blocks everyone else.
@@ -157,6 +189,7 @@ alter table chat_messages  enable row level security;
 alter table agent_status   enable row level security;
 alter table activity_log   enable row level security;
 alter table job_applications enable row level security;
+alter table chat_departments enable row level security;
 
 -- ── Image storage bucket ────────────────────────────────────────────────
 -- Used only by the older Images (Supabase) screen in the admin console. Blog cover photos and article

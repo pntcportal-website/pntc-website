@@ -114,6 +114,30 @@
   #agent-modal input:focus { border-color: #0B2A6B; }
   #agent-modal button { width: 100%; padding: 11px; background: #0B2A6B; color: #fff; border: none; border-radius: 8px; font-size: .9rem; font-weight: 700; cursor: pointer; }
   #agent-modal button:hover { background: #1244B8; }
+  #agent-modal select, .ov-box select, .ov-box input, .ov-box textarea { width: 100%; border: 1.5px solid #dde; border-radius: 8px; padding: 10px 12px; font-size: .88rem; outline: none; font-family: inherit; background: #fff; color: #222; }
+  #agent-modal select { margin-bottom: 14px; }
+  .am-label { display: block; font-size: .74rem; font-weight: 700; color: #0B2A6B; margin-bottom: 6px; letter-spacing: .02em; }
+  #agent-chip-dept { font-weight: 500; opacity: .75; }
+  .topbar-btn { font-size: .74rem; padding: 5px 12px; border-radius: 16px; border: 1.5px solid rgba(255,255,255,.18); background: transparent; color: var(--text); cursor: pointer; }
+  .topbar-btn:hover { background: rgba(255,255,255,.08); }
+  .session-tag.dept { background: #FFF6DB; color: #8a6400; }
+  /* transfer and departments windows */
+  .ov { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 9998; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .ov.show { display: flex; }
+  .ov-box { background: #fff; color: #222; border-radius: 14px; padding: 24px; width: 420px; max-width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+  .ov-box.wide { width: 760px; }
+  .ov-box h2 { font-size: 1.05rem; color: #0B2A6B; margin-bottom: 6px; }
+  .ov-box > p { font-size: .8rem; color: #666; margin-bottom: 16px; line-height: 1.55; }
+  .ov-foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; align-items: center; }
+  .ov-msg { font-size: .78rem; color: #c00; flex: 1; }
+  .dp { border: 1.5px solid #E2E6F0; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .dp-row { display: grid; grid-template-columns: 1fr 120px 120px auto; gap: 8px; align-items: end; }
+  .dp-sub { font-size: .7rem; font-weight: 700; color: #667; margin: 10px 0 5px; text-transform: uppercase; letter-spacing: .05em; }
+  .dp-checks { display: flex; flex-wrap: wrap; gap: 6px; }
+  .dp-checks label { display: inline-flex; align-items: center; gap: 5px; font-size: .76rem; border: 1.5px solid #E2E6F0; border-radius: 14px; padding: 3px 10px; cursor: pointer; }
+  .dp-checks input { width: auto; margin: 0; }
+  .dp textarea { min-height: 70px; resize: vertical; font-size: .8rem; }
+  @media (max-width: 700px) { .dp-row { grid-template-columns: 1fr 1fr; } }
 </style>
 <script src="access.js"></script>
 </head>
@@ -123,9 +147,34 @@
 <div id="agent-modal-overlay">
   <div id="agent-modal">
     <h2>👋 Welcome to Live Chat</h2>
-    <p>Enter your name before you start. This is the name visitors will see when you reply to them.</p>
+    <p>Choose your department, then enter your name. You will receive only the chats of your department. Visitors see your name when you reply.</p>
+    <label class="am-label" for="agent-dept-input">Department</label>
+    <select id="agent-dept-input"><option value="">Loading…</option></select>
+    <label class="am-label" for="agent-name-input">Your name</label>
     <input id="agent-name-input" placeholder="Your name (e.g. Maria)" maxlength="60" autocomplete="off">
     <button id="agent-name-btn">Enter Live Chat</button>
+  </div>
+</div>
+
+<!-- Transfer a chat -->
+<div class="ov" id="transfer-ov">
+  <div class="ov-box">
+    <h2>Transfer this chat</h2>
+    <p>The chat moves to the department you choose, and the visitor is told in the chat. It leaves your list.</p>
+    <label class="am-label" for="transfer-dept">Department</label>
+    <select id="transfer-dept"></select>
+    <div class="ov-foot"><span class="ov-msg" id="transfer-msg"></span><button class="btn-sm" id="transfer-cancel">Cancel</button><button class="btn-sm primary" id="transfer-go">Transfer</button></div>
+  </div>
+</div>
+
+<!-- Departments, office hours and offline replies -->
+<div class="ov" id="depts-ov">
+  <div class="ov-box wide">
+    <h2>Departments and office hours</h2>
+    <p>New chats go to the department that has the visitor's website ticked. A message sent outside a department's office days and hours (Philippine time) gets its offline reply automatically, once every 12 hours per chat.</p>
+    <div id="depts-list"></div>
+    <button class="btn-sm" id="depts-add">+ Add department</button>
+    <div class="ov-foot"><span class="ov-msg" id="depts-msg"></span><button class="btn-sm" id="depts-cancel">Cancel</button><button class="btn-sm primary" id="depts-save">Save</button></div>
   </div>
 </div>
 
@@ -159,9 +208,11 @@
       <span id="unread-total"></span>
     </div>
     <div class="topbar-right">
-      <div id="agent-chip" title="Click to change name">
+      <button class="topbar-btn" id="dept-settings-btn" hidden>⚙ Departments and hours</button>
+      <div id="agent-chip" title="Click to change your name or department">
         <span class="dot"></span>
         <span id="agent-chip-name">Agent</span>
+        <span id="agent-chip-dept"></span>
       </div>
       <span class="topbar-status" id="poll-status">Connecting…</span>
     </div>
@@ -208,6 +259,7 @@
           </div>
           <div class="convo-header-actions">
             <button class="btn-sm" id="info-btn">ℹ️ Info</button>
+            <button class="btn-sm" id="transfer-btn">↪ Transfer</button>
             <button class="btn-sm warn" id="terminate-btn">🚫 Terminate</button>
             <button class="btn-sm danger" id="close-btn">Close</button>
           </div>
@@ -265,6 +317,8 @@
   var pollTimer    = null;
   var totalUnread  = 0;
   var agentName    = '';
+  var agentDept    = '';   // the department this agent answers for ('all' = every department, Executive only)
+  var DEPTS        = [];
   var infoPanelOpen = false;
   var lastMsgDate  = null;
 
@@ -279,28 +333,57 @@
   var agentChipName = document.getElementById('agent-chip-name');
   var replyAgentName = document.getElementById('reply-agent-name');
 
-  try { agentName = localStorage.getItem('pntc_agent_name') || ''; } catch (e) {}
+  var agentDeptInput = document.getElementById('agent-dept-input');
+  try { agentName = localStorage.getItem('pntc_agent_name') || ''; agentDept = localStorage.getItem('pntc_agent_dept') || ''; } catch (e) {}
 
-  function applyAgentName(name) {
-    agentName = name;
+  var me = function () { return window.PNTC_ME || {}; };
+  function deptName(id) { if (id === 'all') return 'All departments'; var d = DEPTS.filter(function (x) { return x.id === id; })[0]; return d ? d.name : (id || ''); }
+  // older chats saved before departments existed belong to the department of their website
+  function deptOf(s) { if (s.department) return s.department; var d = DEPTS.filter(function (x) { return (x.sites || []).indexOf(s.site) > -1; })[0] || DEPTS[0]; return d ? d.id : ''; }
+  function fillDeptSelect() {
+    agentDeptInput.innerHTML = '<option value="">Choose your department…</option>' + DEPTS.map(function (d) { return '<option value="' + esc(d.id) + '">' + esc(d.name) + '</option>'; }).join('')
+      + (me().role === 'executive' ? '<option value="all">All departments (supervisor view)</option>' : '');
+    agentDeptInput.value = agentDept;
+  }
+
+  function applyAgentName(name, dept) {
+    var changed = dept !== agentDept;
+    agentName = name; agentDept = dept;
     agentChipName.textContent = name;
+    document.getElementById('agent-chip-dept').textContent = '· ' + deptName(dept);
     replyAgentName.textContent = name;
-    try { localStorage.setItem('pntc_agent_name', name); } catch (e) {}
+    try { localStorage.setItem('pntc_agent_name', name); localStorage.setItem('pntc_agent_dept', dept); } catch (e) {}
+    if (changed) resetList();
     startHeartbeat();
+    sendHeartbeat();
   }
 
-  if (agentName) {
-    agentModal.style.display = 'none';
-    applyAgentName(agentName);
-    startPolling();
-  } else {
-    agentInput.focus();
+  async function loadDepartments() {
+    try { var r = await fetch(API + '/departments'); var d = await r.json(); DEPTS = Array.isArray(d) ? d : []; } catch (e) { DEPTS = []; }
+    fillDeptSelect();
   }
+
+  function startAgent() {
+    var known = agentDept === 'all' ? me().role === 'executive' : DEPTS.some(function (d) { return d.id === agentDept; });
+    if (agentName && known) {
+      agentModal.style.display = 'none';
+      applyAgentName(agentName, agentDept);
+      startPolling();
+    } else {
+      agentInput.value = agentName;
+      (agentDeptInput.value ? agentInput : agentDeptInput).focus();
+    }
+  }
+  var booted = false;
+  function boot() { if (booted) return; booted = true; loadDepartments().then(startAgent); document.getElementById('dept-settings-btn').hidden = me().role === 'chat'; }
+  document.addEventListener('pntc-access', boot);
+  if (window.PNTC_ME) boot();
 
   agentNameBtn.addEventListener('click', function () {
-    var name = agentInput.value.trim();
+    var name = agentInput.value.trim(), dept = agentDeptInput.value;
+    if (!dept) { agentDeptInput.focus(); return; }
     if (!name) { agentInput.focus(); return; }
-    applyAgentName(name);
+    applyAgentName(name, dept);
     agentModal.style.display = 'none';
     startPolling();
   });
@@ -311,6 +394,7 @@
   // Click chip to change name
   agentChip.addEventListener('click', function () {
     agentInput.value = agentName;
+    fillDeptSelect();
     agentModal.style.display = 'flex';
     agentInput.focus();
   });
@@ -386,7 +470,7 @@
     if (!agentName) return;
     fetch(API + '/agent-heartbeat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ agentName: agentName })
+      body: JSON.stringify({ agentName: agentName, department: agentDept === 'all' ? null : agentDept })
     }).then(function(r) { return r.json(); })
       .then(function(d) { if (!d.ok) console.warn('[heartbeat]', d); })
       .catch(function(e) { console.warn('[heartbeat error]', e); });
@@ -408,7 +492,7 @@
   async function loadSessions() {
     try {
       var full = !newestAt || Date.now() - lastFull > 600000;
-      var r = await fetch(API + '/sessions' + (full ? '' : '?since=' + encodeURIComponent(newestAt)));
+      var r = await fetch(API + '/sessions' + (full ? (agentDept && agentDept !== 'all' ? '?dept=' + encodeURIComponent(agentDept) : '') : '?since=' + encodeURIComponent(newestAt)));
       if (r.status === 401) { pollStatus.textContent = 'Not authenticated'; return; }
       var list = await r.json();
       if (!Array.isArray(list)) return;
@@ -417,9 +501,11 @@
       if (full) { sessions = {}; lastFull = Date.now(); }
       var hasNewUnread = false;
       list.forEach(function (s) {
+        if (!newestAt || s.updated_at > newestAt) newestAt = s.updated_at;
+        // a chat moved to another department leaves this list
+        if (agentDept !== 'all' && deptOf(s) !== agentDept) { delete sessions[s.id]; if (s.id === activeId) closeConvo(); return; }
         if (s.id === activeId) s.unread_count = 0;
         sessions[s.id] = s;
-        if (!newestAt || s.updated_at > newestAt) newestAt = s.updated_at;
         if (s.id !== activeId && (s.unread_count || 0) > (prevUnread[s.id] || 0)) hasNewUnread = true;
       });
       if (hasNewUnread) playNotifSound();
@@ -451,8 +537,9 @@
         + '<div class="session-tags">'
         + '<span class="session-tag' + (s.status==='closed'?' closed':'') + '">' + (SITE_LABELS[s.site]||s.site) + '</span>'
         + (concernLabel ? '<span class="session-tag' + (s.status==='closed'?' closed':'') + '">' + esc(concernLabel) + '</span>' : '')
+        + (agentDept === 'all' ? '<span class="session-tag dept">' + esc(deptName(deptOf(s))) + '</span>' : '')
         + '</div>'
-        + '<div class="session-preview"><span>' + esc((s.last_message||'').slice(0,60)) + '</span>'
+        + '<div class="session-preview"><span>' + esc(((s.lastMessage && s.lastMessage.message) || '').slice(0,60)) + '</span>'
         + (s.unread_count > 0 ? '<span class="session-badge">' + s.unread_count + '</span>' : '')
         + '</div></div>';
       div.addEventListener('click', function () { openSession(s.id); });
@@ -483,7 +570,7 @@
     if (s) {
       convoName.textContent = s.visitor_name || 'Visitor';
       var cLabel = CONCERN_LABELS[s.concern_type] || s.concern_type || '—';
-      convoSubtitle.textContent = (SITE_LABELS[s.site]||s.site) + ' · ' + cLabel;
+      convoSubtitle.textContent = (SITE_LABELS[s.site]||s.site) + ' · ' + cLabel + ' · ' + deptName(deptOf(s));
       viEmail.textContent   = s.visitor_email   || '—';
       viContact.textContent = s.visitor_contact || '—';
       viConcern.innerHTML   = '<span class="concern-badge">' + esc(cLabel) + '</span>';
@@ -668,6 +755,85 @@
   });
 
   // ── Polling ───────────────────────────────────────────────────
+  function resetList() { sessions = {}; newestAt = null; lastFull = 0; closeConvo(); renderSessionList(); updateUnreadTotal(); if (pollTimer) loadSessions(); }
+  function closeConvo() { activeId = null; convoView.style.display = 'none'; convoEmpty.style.display = ''; }
+
+  // ── Transfer ──────────────────────────────────────────────────
+  var transferOv = document.getElementById('transfer-ov'), transferSel = document.getElementById('transfer-dept'), transferMsg = document.getElementById('transfer-msg');
+  document.getElementById('transfer-btn').addEventListener('click', function () {
+    var s = sessions[activeId]; if (!s) return;
+    var cur = deptOf(s);
+    transferSel.innerHTML = DEPTS.filter(function (d) { return d.id !== cur; }).map(function (d) { return '<option value="' + esc(d.id) + '">' + esc(d.name) + '</option>'; }).join('');
+    transferMsg.textContent = ''; transferOv.classList.add('show');
+  });
+  document.getElementById('transfer-cancel').addEventListener('click', function () { transferOv.classList.remove('show'); });
+  document.getElementById('transfer-go').addEventListener('click', async function () {
+    var id = activeId, dept = transferSel.value; if (!id || !dept) return;
+    try {
+      var r = await fetch(API + '/session/' + id + '/transfer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ department: dept, agentName: agentName }) });
+      var d = await r.json(); if (!r.ok) throw new Error(d.error || 'Transfer failed.');
+      transferOv.classList.remove('show');
+      if (agentDept === 'all') { sessions[id].department = dept; renderSessionList(); fetchMessages(); }
+      else { delete sessions[id]; closeConvo(); renderSessionList(); updateUnreadTotal(); }
+    } catch (e) { transferMsg.textContent = e.message; }
+  });
+
+  // ── Departments and office hours ──────────────────────────────
+  var deptsOv = document.getElementById('depts-ov'), deptsList = document.getElementById('depts-list'), deptsMsg = document.getElementById('depts-msg');
+  var SITE_OPTS = [['colleges', 'College'], ['shs', 'Senior High School'], ['main', 'Main site'], ['maritime', 'Training Center'], ['aman', 'Aman Sinaya']];
+  var DAY_OPTS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var draft = [];
+  function renderDepts() {
+    deptsList.innerHTML = draft.map(function (d, i) {
+      return '<div class="dp" data-i="' + i + '"><div class="dp-row">'
+        + '<div><label class="am-label">Department name</label><input data-k="name" value="' + esc(d.name) + '"></div>'
+        + '<div><label class="am-label">Opens</label><input type="time" data-k="open_time" value="' + esc(d.open_time || '08:00') + '"></div>'
+        + '<div><label class="am-label">Closes</label><input type="time" data-k="close_time" value="' + esc(d.close_time || '17:00') + '"></div>'
+        + '<button class="btn-sm danger" data-del="' + i + '" title="Remove">✕</button></div>'
+        + '<div class="dp-sub">Office days</div><div class="dp-checks">' + DAY_OPTS.map(function (n, k) { return '<label><input type="checkbox" data-day="' + k + '"' + ((d.days || []).indexOf(k) > -1 ? ' checked' : '') + '> ' + n + '</label>'; }).join('') + '</div>'
+        + '<div class="dp-sub">New chats from these websites come here first</div><div class="dp-checks">' + SITE_OPTS.map(function (o) { return '<label><input type="checkbox" data-site="' + o[0] + '"' + ((d.sites || []).indexOf(o[0]) > -1 ? ' checked' : '') + '> ' + o[1] + '</label>'; }).join('') + '</div>'
+        + '<div class="dp-sub">Offline reply</div><textarea data-k="offline_message" placeholder="Sent when a visitor writes outside office hours. Leave empty for no reply.">' + esc(d.offline_message || '') + '</textarea></div>';
+    }).join('');
+  }
+  deptsList.addEventListener('input', function (e) {
+    var box = e.target.closest('.dp'); if (!box) return; var d = draft[+box.dataset.i];
+    if (e.target.dataset.k) d[e.target.dataset.k] = e.target.value;
+  });
+  deptsList.addEventListener('change', function (e) {
+    var box = e.target.closest('.dp'); if (!box) return; var d = draft[+box.dataset.i];
+    if (e.target.dataset.day != null) d.days = [].map.call(box.querySelectorAll('[data-day]:checked'), function (x) { return +x.dataset.day; });
+    if (e.target.dataset.site != null) {
+      // a website sends its new chats to one department only
+      var site = e.target.dataset.site;
+      if (e.target.checked) draft.forEach(function (o, j) { if (j !== +box.dataset.i) o.sites = (o.sites || []).filter(function (x) { return x !== site; }); });
+      d.sites = [].map.call(box.querySelectorAll('[data-site]:checked'), function (x) { return x.dataset.site; });
+      renderDepts();
+    }
+  });
+  deptsList.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-del]'); if (!b) return;
+    if (!confirm('Remove this department? Its chats move to the first department in the list.')) return;
+    draft.splice(+b.dataset.del, 1); renderDepts();
+  });
+  document.getElementById('depts-add').addEventListener('click', function () {
+    draft.push({ name: '', sites: [], days: [1, 2, 3, 4, 5], open_time: '08:00', close_time: '17:00', offline_message: 'Thank you for your message. Our team is offline right now. We will call you on the next business day, or you may continue this chat once we are back.' });
+    renderDepts();
+  });
+  document.getElementById('dept-settings-btn').addEventListener('click', function () {
+    draft = JSON.parse(JSON.stringify(DEPTS)); deptsMsg.textContent = ''; renderDepts(); deptsOv.classList.add('show');
+  });
+  document.getElementById('depts-cancel').addEventListener('click', function () { deptsOv.classList.remove('show'); });
+  document.getElementById('depts-save').addEventListener('click', async function () {
+    if (draft.some(function (d) { return !String(d.name || '').trim(); })) { deptsMsg.textContent = 'Every department needs a name.'; return; }
+    try {
+      var r = await fetch(API + '/departments', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(draft) });
+      var d = await r.json(); if (!r.ok) throw new Error(d.error || 'Not saved.');
+      DEPTS = d; fillDeptSelect(); deptsOv.classList.remove('show');
+      if (agentDept !== 'all' && !DEPTS.some(function (x) { return x.id === agentDept; })) { agentModal.style.display = 'flex'; }
+      else { document.getElementById('agent-chip-dept').textContent = '· ' + deptName(agentDept); resetList(); }
+    } catch (e) { deptsMsg.textContent = e.message; }
+  });
+
   function startPolling() {
     if (pollTimer) return;
     loadSessions();

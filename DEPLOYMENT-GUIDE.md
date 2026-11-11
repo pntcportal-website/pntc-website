@@ -104,6 +104,10 @@ It creates the table behind the admin console's **History** screen. A new projec
 It adds the opening status and form to Careers, the table that holds applications, and the private
 `job-applications` storage for résumés. A new project gets all of this from the complete file.
 
+**Live Chat departments (current Supabase project only):** run `supabase/chat-departments.sql` once in the SQL Editor.
+It adds the chat departments (College Marketing, Training Center Marketing, College Registrar, Finance), their office
+hours and offline replies, and the department of each chat. These are then edited in Live Chat > Departments and hours.
+
 **Admin logins and access types:**
 1. The super admin is **`pntcportal@mypntc.edu.ph`**. Create it yourself in Supabase > Authentication > Users >
    Add user > Create new user (email and password, tick Auto Confirm User). It always has full access, and no other
@@ -117,6 +121,7 @@ It adds the opening status and form to Careers, the table that holds application
    | Marketing, IT | Everything except Users and History |
    | Academic | Only the College and SHS Academic Calendars |
    | HR | Careers (job openings) and, in Site Content, the Careers and Leadership page texts |
+   | Live Chat | Only Live Chat (for Training Center Marketing, Registrar, Finance and other chat staff) |
 
 3. **History** (Executive only) lists every change saved in the admin console: who, when, which section and what
    changed, newest first, with filters by user and section.
