@@ -12,6 +12,7 @@ for (const f of fs.readdirSync(DIR).filter(f => f.endsWith('.html'))) {
   const raw = fs.readFileSync(file, 'utf8');
   let h = raw;
   h = h.split('admissions@mypntc.edu.ph').join(EMAIL);
+  h = h.split('Our admissions team will guide you.').join('Our marketing team will guide you.');
   h = h.replace(/(<!--c:training\.cta\.btn1-->)Email Admissions/g, '$1Email Our Marketing Team');
   h = h.replace(/(<!--c:training\.cta\.sub-->)Our admissions staff are ready to assist you\./g, '$1Our marketing team is ready to assist you.');
   if (f === 'index.html') {
