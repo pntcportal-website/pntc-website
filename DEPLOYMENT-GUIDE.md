@@ -100,6 +100,10 @@ To create it from only the public parts instead, run `supabase/schema.sql`, then
 **History table (current Supabase project only):** run `supabase/activity-log.sql` once in the SQL Editor.
 It creates the table behind the admin console's **History** screen. A new project gets it from the complete file.
 
+**Job application forms (current Supabase project only):** run `supabase/careers-applications.sql` once in the SQL Editor.
+It adds the opening status and form to Careers, the table that holds applications, and the private
+`job-applications` storage for résumés. A new project gets all of this from the complete file.
+
 **Admin logins and access types:**
 1. The super admin is **`pntcportal@mypntc.edu.ph`**. Create it yourself in Supabase > Authentication > Users >
    Add user > Create new user (email and password, tick Auto Confirm User). It always has full access, and no other

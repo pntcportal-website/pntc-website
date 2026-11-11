@@ -1,6 +1,7 @@
 'use strict';
 const express = require('express');
 const multer  = require('multer');
+const CAREERS = require('./careers');
 const path    = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { createClient } = require('@supabase/supabase-js');
@@ -148,11 +149,13 @@ function areaFor(p) {
   if (p === '/api/public/posts' || p === '/api/sites' || p.startsWith('/api/auth/')) return null;
   if (p === '/api/chat/agent-status' || p === '/api/chat/session') return null;                     // visitor chat box
   if (/^\/api\/chat\/session\/[^/]+\/(message|messages|status)$/.test(p)) return null;               // visitor chat box
+  if (p === '/api/public/careers/apply') return null;                                                // job application form
   if (p.startsWith('/api/chat/')) return 'chat';
   if (p.startsWith('/api/users')) return 'users';
   if (p.startsWith('/api/history')) return 'history';
   if (p.startsWith('/api/posts') || p.startsWith('/api/publish') || p === '/api/upload/featured') return 'posts';
   if (p.startsWith('/api/images')) return 'images';
+  if (p.startsWith('/api/careers/')) return 'careers';                                                // job applications
   const land = /^\/api\/landing\/(careers|research|directory|merchandise)\b/.exec(p);
   if (land) return land[1];
   if (p === '/api/calendar' || p === '/api/shs-calendar') return 'calendar';
@@ -186,6 +189,10 @@ function describe(req, area, p, body) {
     if (m === 'DELETE') return 'Deleted a blog post';
   }
   if (area === 'images') return (/upload/.test(p) ? 'Uploaded image ' : 'Replaced image ') + q((req.file && req.file.originalname) || b.filename || p.split('/').pop());
+  if (p.startsWith('/api/careers/applications')) {
+    if (m === 'DELETE') return 'Deleted a job application' + (req.targetName ? ' from ' + req.targetName : '');
+    return 'Updated a job application' + (req.targetName ? ' from ' + req.targetName : '') + (b.status ? ` (status: ${b.status})` : '');
+  }
   if (LANDING_NAMES[area]) {
     const what = LANDING_NAMES[area];
     if (/\/publish$/.test(p)) return `Published the ${what} list to the website`;
@@ -757,12 +764,19 @@ app.get('/api/landing/:type', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// a job opening keeps only its own fields, and its application form is cleaned before saving
+const careerFields = b => ({
+  title: String(b.title || ''), department: String(b.department || ''), location: String(b.location || 'Dasmariñas, Cavite'),
+  description: String(b.description || ''), badgeType: ['Full-Time', 'Part-Time', 'Contract'].includes(b.badgeType) ? b.badgeType : 'Full-Time',
+  status: ['open', 'draft', 'closed'].includes(b.status) ? b.status : 'draft', form: CAREERS.normalizeForm(b.form),
+});
+
 app.post('/api/landing/:type', async (req, res) => {
   const { type } = req.params;
   if (!LANDING_TABLE_MAP[type]) return res.status(404).json({ error: 'Unknown type' });
   try {
     const now  = new Date().toISOString();
-    const item = { id: uuidv4(), ...req.body, createdAt: now, updatedAt: now };
+    const item = { id: uuidv4(), ...(type === 'careers' ? careerFields(req.body) : req.body), createdAt: now, updatedAt: now };
     const { data, error } = await supabase.from(LANDING_TABLE_MAP[type]).insert(item).select().single();
     if (error) throw error;
     res.json(data);
@@ -773,7 +787,7 @@ app.put('/api/landing/:type/:id', async (req, res) => {
   const { type, id } = req.params;
   if (!LANDING_TABLE_MAP[type]) return res.status(404).json({ error: 'Unknown type' });
   try {
-    const updated = { ...req.body, id, updatedAt: new Date().toISOString() };
+    const updated = { ...(type === 'careers' ? careerFields(req.body) : req.body), id, updatedAt: new Date().toISOString() };
     const { data, error } = await supabase
       .from(LANDING_TABLE_MAP[type]).update(updated).eq('id', id).select().single();
     if (error) throw error;
@@ -816,10 +830,150 @@ app.post('/api/landing/:type/publish', async (req, res) => {
       await ghPutFile(landingPath, html, `Update ${type}`, existing.sha);
       files.push(landingPath);
     }
-    res.json({ ok: true, type, count: (items || []).length, files });
+    if (type === 'careers') {
+      const DATA = 'PNTC Main Landing Page/careers-jobs.json';
+      const existing = await ghGetFile(DATA);
+      await ghPutFile(DATA, CAREERS.jobsData(items || []), 'Update careers application forms', existing && existing.sha);
+      files.push(DATA);
+    }
+    res.json({ ok: true, type, count: type === 'careers' ? (items || []).filter(CAREERS.isOpen).length : (items || []).length, files });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ══════════════════════════════════════════════════════════════
+//  Job applications (Careers > Apply for this role)
+// ══════════════════════════════════════════════════════════════
+// The apply page (/careers-apply) reads its form from careers-jobs.json, written when Careers is published.
+// Each application is one row in job_applications. Attached files go to the private Supabase Storage
+// bucket "job-applications" and are only opened by HR through short-lived links, so visitors never download from it.
+const APP_BUCKET = 'job-applications';
+const APP_STATUS = ['new', 'reviewing', 'shortlisted', 'interview', 'hired', 'not-selected'];
+const applyUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 10, fields: 120 } }).any();
+const applyHits = new Map();   // simple flood guard: a few applications per visitor address every 10 minutes
+const tooMany = ip => {
+  const now = Date.now(), list = (applyHits.get(ip) || []).filter(t => now - t < 10 * 60 * 1000);
+  list.push(now); applyHits.set(ip, list);
+  if (applyHits.size > 5000) applyHits.clear();
+  return list.length > 5;
+};
+const safeName = n => String(n || 'file').normalize('NFKD').replace(/[^\w.\-]+/g, '-').replace(/-+/g, '-').slice(-80);
+
+app.post('/api/public/careers/apply', (req, res) => {
+  applyUpload(req, res, async err => {
+    if (err) return res.status(400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'Each file must be 5 MB or smaller.' : 'The form could not be sent. Please try again.' });
+    const b = req.body || {};
+    if (b.website) return res.json({ ok: true });                       // filled only by spam robots
+    const ip = req.headers['cf-connecting-ip'] || req.ip || '';
+    if (tooMany(ip)) return res.status(429).json({ error: 'Too many applications from this connection. Please try again later.' });
+    try {
+      const { data: job, error } = await supabase.from('careers').select('id,title,status,form').eq('id', String(b.job || '')).maybeSingle();
+      if (error) throw error;
+      if (!job || !CAREERS.isOpen(job)) return res.status(404).json({ error: 'This opening is no longer accepting applications.' });
+      const form = CAREERS.normalizeForm(job.form);
+      const { answers, error: bad } = CAREERS.checkAnswers(form, b, req.files);
+      if (bad) return res.status(400).json({ error: bad });
+
+      const id = uuidv4();
+      const files = [];
+      for (const fl of req.files || []) {
+        const q = form.fields.find(x => x.id === fl.fieldname && x.type === 'file');
+        if (!q) continue;
+        const path = `${id}/${q.id}-${safeName(fl.originalname)}`;
+        const up = await supabase.storage.from(APP_BUCKET).upload(path, fl.buffer, { contentType: fl.mimetype || 'application/octet-stream', upsert: false });
+        if (up.error) throw new Error(/bucket/i.test(up.error.message) ? 'The application storage is not set up yet.' : up.error.message);
+        files.push({ field: q.id, label: q.label, name: fl.originalname, path, size: fl.size, type: fl.mimetype || '' });
+      }
+      const nameQ = form.fields.find(x => x.id === 'name') || form.fields.find(x => x.type === 'short');
+      const mailQ = form.fields.find(x => x.type === 'email');
+      const { error: insErr } = await supabase.from('job_applications').insert({
+        id, career_id: job.id, job_title: job.title || '',
+        applicant_name: nameQ ? String(answers[nameQ.id] || '') : '', applicant_email: mailQ ? String(answers[mailQ.id] || '') : '',
+        answers, questions: form.fields.map(x => ({ id: x.id, label: x.label, type: x.type })), files, status: 'new',
+      });
+      if (insErr) {
+        if (files.length) await supabase.storage.from(APP_BUCKET).remove(files.map(x => x.path));
+        throw insErr;
+      }
+      res.json({ ok: true, message: form.success });
+    } catch (e) {
+      console.error('Job application error:', e.message);
+      res.status(500).json({ error: 'Your application could not be saved right now. Please try again in a few minutes.' });
+    }
+  });
+});
+
+// ── Applications screen (Careers access) ─────────────────────────
+// Newest first, 50 at a time. ?before=<time of the last row shown> loads the next 50.
+app.get('/api/careers/applications', async (req, res) => {
+  try {
+    let q = supabase.from('job_applications').select('id,created_at,career_id,job_title,applicant_name,applicant_email,status')
+      .order('created_at', { ascending: false }).limit(Math.min(parseInt(req.query.limit) || 50, 100));
+    if (req.query.before) q = q.lt('created_at', req.query.before);
+    if (req.query.job) q = q.eq('career_id', req.query.job);
+    if (req.query.status) q = q.eq('status', req.query.status);
+    const { data, error } = await q;
+    if (error) throw new Error(/job_applications/.test(error.message) ? 'The applications table is missing. Run supabase/careers-applications.sql once in Supabase.' : error.message);
+    res.json({ rows: data || [], statuses: APP_STATUS });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// how many applications each opening has (all and new), for the Careers list
+app.get('/api/careers/applications/counts', async (_req, res) => {
+  try {
+    const { data, error } = await supabase.from('job_applications').select('career_id,status').limit(20000);
+    if (error) throw error;
+    const counts = {};
+    for (const r of data || []) {
+      const c = counts[r.career_id] || (counts[r.career_id] = { total: 0, new: 0 });
+      c.total++; if (r.status === 'new') c.new++;
+    }
+    res.json(counts);
+  } catch (_) { res.json({}); }
+});
+
+async function oneApplication(req, res, cols) {
+  const { data, error } = await supabase.from('job_applications').select(cols).eq('id', req.params.id).maybeSingle();
+  if (error) { res.status(500).json({ error: error.message }); return null; }
+  if (!data) { res.status(404).json({ error: 'Application not found.' }); return null; }
+  return data;
+}
+
+app.get('/api/careers/applications/:id', async (req, res) => {
+  const row = await oneApplication(req, res, '*'); if (!row) return;
+  res.json(row);
+});
+
+// opens an attached file through a link that works for 2 minutes
+app.get('/api/careers/applications/:id/file/:n', async (req, res) => {
+  const row = await oneApplication(req, res, 'files'); if (!row) return;
+  const fl = (row.files || [])[parseInt(req.params.n)];
+  if (!fl) return res.status(404).json({ error: 'File not found.' });
+  const { data, error } = await supabase.storage.from(APP_BUCKET).createSignedUrl(fl.path, 120, { download: req.query.view ? false : fl.name });
+  if (error) return res.status(500).json({ error: error.message });
+  res.redirect(data.signedUrl);
+});
+
+app.put('/api/careers/applications/:id', async (req, res) => {
+  const row = await oneApplication(req, res, 'id,applicant_name,applicant_email'); if (!row) return;
+  req.targetName = row.applicant_name || row.applicant_email;
+  const { status, notes } = req.body || {};
+  const upd = {};
+  if (status !== undefined) { if (!APP_STATUS.includes(status)) return res.status(400).json({ error: 'Unknown status.' }); upd.status = status; }
+  if (notes !== undefined) upd.notes = String(notes).slice(0, 5000);
+  const { error } = await supabase.from('job_applications').update(upd).eq('id', row.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+app.delete('/api/careers/applications/:id', async (req, res) => {
+  const row = await oneApplication(req, res, 'id,applicant_name,applicant_email,files'); if (!row) return;
+  req.targetName = row.applicant_name || row.applicant_email;
+  if ((row.files || []).length) await supabase.storage.from(APP_BUCKET).remove(row.files.map(x => x.path));
+  const { error } = await supabase.from('job_applications').delete().eq('id', row.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
 });
 
 // ══════════════════════════════════════════════════════════════

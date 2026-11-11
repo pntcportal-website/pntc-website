@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PNTC Admin – Applications</title>
+<link rel="stylesheet" href="admin.css">
+<script src="access.js"></script>
+<style>
+.a-filters { display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; }
+.a-filters select { min-width:200px; padding:.4rem .6rem; font-size:.8rem; }
+.a-when { white-space:nowrap; }
+.a-st { padding:.3rem .5rem; font-size:.76rem; min-width:140px; }
+.a-pill { display:inline-block; padding:.15rem .55rem; border-radius:99px; font-size:.68rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+.a-pill.new { background:rgba(200,150,12,.2); color:var(--gold-lt); }
+.a-more { margin-top:1rem; text-align:center; }
+#a-more[hidden] { display:none; }
+.a-msg { margin-top:.75rem; font-size:.82rem; color:#f87171; }
+.data-table tbody tr { cursor:pointer; }
+.data-table tbody tr:hover td { background:rgba(255,255,255,.03); }
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:500; display:flex; align-items:center; justify-content:center; padding:1.5rem; }
+.modal-overlay[hidden] { display:none; }
+.modal-box { background:var(--card); border:1px solid var(--border); border-radius:10px; width:100%; max-width:720px; max-height:90vh; overflow-y:auto; padding:1.5rem; }
+.d-head { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; margin-bottom:1rem; }
+.d-head h2 { margin:0; font-size:1.1rem; }
+.d-head p { margin:.25rem 0 0; font-size:.8rem; color:var(--muted); }
+.d-q { padding:.75rem 0; border-top:1px solid var(--border); }
+.d-q b { display:block; font-size:.74rem; color:var(--muted); font-weight:600; margin-bottom:.25rem; }
+.d-q div { font-size:.88rem; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+.d-files { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.35rem; }
+.d-foot { display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; margin-top:1.2rem; padding-top:1rem; border-top:1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <img src="/site-files/SHS/PNTC White Horizontal.png" alt="PNTC" onerror="this.style.display='none'">
+    <div class="sidebar-brand-sub">Admin Console</div>
+  </div>
+  <div class="sidebar-section-label">Navigation</div>
+  <nav class="sidebar-nav">
+    <a class="nav-item" href="index.html"><span class="nav-icon">🏠</span> Dashboard</a>
+    <a class="nav-item" href="posts.html"><span class="nav-icon">📝</span> Posts &amp; Blog</a>
+    <a class="nav-item" href="images.html"><span class="nav-icon">🖼️</span> Image Manager</a>
+    <a class="nav-item" href="landing.html"><span class="nav-icon">🏛️</span> Landing Page</a>
+    <a class="nav-item" href="content.html"><span class="nav-icon">✏️</span> Site Content</a>
+    <a class="nav-item" href="chat.html"><span class="nav-icon">💬</span> Live Chat</a>
+  </nav>
+  <div class="sidebar-bottom">
+    <strong>PNTC Admin</strong>
+    <button onclick="logout()" style="margin-top:.6rem;width:100%;padding:.45rem;background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.25);border-radius:5px;font-size:.75rem;font-weight:700;cursor:pointer;letter-spacing:.06em;text-transform:uppercase">Logout</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title">Applications</span>
+    <span class="topbar-sub">Job applications sent from the Careers page, newest first</span>
+  </div>
+
+  <div class="page-content">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Received</span>
+        <div class="a-filters">
+          <select class="form-select" id="a-job"><option value="">All openings</option></select>
+          <select class="form-select" id="a-status"><option value="">All statuses</option></select>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr><th>Received</th><th>Applicant</th><th>Opening</th><th>Status</th></tr></thead>
+          <tbody id="a-rows"><tr><td colspan="4" class="td-muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="a-msg" id="a-msg"></div>
+      <div class="a-more"><button class="btn btn-ghost btn-sm" id="a-more" hidden>Load older applications</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="d-modal" hidden>
+  <div class="modal-box" id="d-box"></div>
+</div>
+
+<script>
+const STATUS_NAMES = { new: 'New', reviewing: 'Reviewing', shortlisted: 'Shortlisted', interview: 'For interview', hired: 'Hired', 'not-selected': 'Not selected' };
+const PAGE = 50;
+let rows = [], started = false, current = null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const when = d => new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+const size = n => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+
+$('a-status').innerHTML += Object.entries(STATUS_NAMES).map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join('');
+const params = new URLSearchParams(location.search);
+
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Something went wrong (' + r.status + ').');
+  return d;
+}
+const statusSelect = (id, value) => `<select class="form-select a-st" data-id="${id}">${Object.entries(STATUS_NAMES).map(([k, n]) => `<option value="${k}"${k === value ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
+
+async function load(older) {
+  $('a-msg').textContent = '';
+  const q = new URLSearchParams({ limit: PAGE });
+  if ($('a-job').value) q.set('job', $('a-job').value);
+  if ($('a-status').value) q.set('status', $('a-status').value);
+  if (older && rows.length) q.set('before', rows[rows.length - 1].created_at);
+  try {
+    const d = await api('/api/careers/applications?' + q);
+    rows = older ? rows.concat(d.rows) : d.rows;
+    $('a-more').hidden = d.rows.length < PAGE;
+    render();
+  } catch (e) { $('a-msg').textContent = e.message; if (!older) $('a-rows').innerHTML = ''; }
+}
+
+function render() {
+  $('a-rows').innerHTML = rows.map(r => `<tr data-id="${r.id}">
+    <td class="td-muted a-when">${when(r.created_at)}</td>
+    <td class="td-title">${esc(r.applicant_name || '(no name)')} ${r.status === 'new' ? '<span class="a-pill new">New</span>' : ''}<br><span class="td-muted">${esc(r.applicant_email)}</span></td>
+    <td>${esc(r.job_title)}</td>
+    <td>${statusSelect(r.id, r.status)}</td></tr>`).join('') || '<tr><td colspan="4" class="td-muted">No applications yet.</td></tr>';
+}
+
+async function setStatus(id, status) {
+  await api('/api/careers/applications/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+  const r = rows.find(x => x.id === id); if (r) r.status = status;
+}
+
+$('a-rows').addEventListener('change', async e => {
+  if (!e.target.classList.contains('a-st')) return;
+  try { await setStatus(e.target.dataset.id, e.target.value); render(); } catch (err) { $('a-msg').textContent = err.message; }
+});
+$('a-rows').addEventListener('click', e => {
+  if (e.target.closest('select')) return;
+  const tr = e.target.closest('tr[data-id]'); if (tr) openApp(tr.dataset.id);
+});
+
+async function openApp(id) {
+  $('d-box').innerHTML = '<p class="td-muted">Loading…</p>'; $('d-modal').hidden = false;
+  try {
+    const a = current = await api('/api/careers/applications/' + id);
+    const files = a.files || [];
+    const qs = (a.questions || []).map(q => {
+      let v;
+      if (q.type === 'file') {
+        const list = files.map((f, n) => ({ f, n })).filter(x => x.f.field === q.id);
+        v = list.length ? '<div class="d-files">' + list.map(x => `<a class="btn btn-sm" href="/api/careers/applications/${a.id}/file/${x.n}?view=1" target="_blank" rel="noopener">Open ${esc(x.f.name)} (${size(x.f.size)})</a><a class="btn btn-ghost btn-sm" href="/api/careers/applications/${a.id}/file/${x.n}">Download</a>`).join('') + '</div>' : '<span class="td-muted">No file</span>';
+      } else {
+        const ans = (a.answers || {})[q.id];
+        const text = Array.isArray(ans) ? ans.join(', ') : ans;
+        v = text ? (q.type === 'email' ? `<a href="mailto:${esc(text)}">${esc(text)}</a>` : q.type === 'url' ? `<a href="${esc(text)}" target="_blank" rel="noopener">${esc(text)}</a>` : esc(text)) : '<span class="td-muted">No answer</span>';
+      }
+      return `<div class="d-q"><b>${esc(q.label)}</b><div>${v}</div></div>`;
+    }).join('');
+    $('d-box').innerHTML = `<div class="d-head"><div><h2>${esc(a.applicant_name || '(no name)')}</h2><p>${esc(a.job_title)} · received ${when(a.created_at)}</p></div><button class="btn btn-ghost btn-sm" onclick="closeApp()">Close</button></div>
+      ${qs}
+      <div class="d-q"><b>HR notes (only visible here)</b><textarea class="form-input" id="d-notes" rows="3">${esc(a.notes || '')}</textarea></div>
+      <div class="d-foot">${statusSelect(a.id, a.status)}<button class="btn btn-primary btn-sm" id="d-save">Save notes and status</button><span class="td-muted" id="d-ok"></span><button class="btn btn-danger btn-sm" id="d-del" style="margin-left:auto">Delete application</button></div>`;
+    if (a.status === 'new') { await setStatus(a.id, 'reviewing'); a.status = 'reviewing'; $('d-box').querySelector('.a-st').value = 'reviewing'; render(); }
+    $('d-save').onclick = async () => {
+      const status = $('d-box').querySelector('.a-st').value;
+      try {
+        await api('/api/careers/applications/' + a.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, notes: $('d-notes').value }) });
+        const r = rows.find(x => x.id === a.id); if (r) r.status = status;
+        render(); $('d-ok').textContent = 'Saved.';
+      } catch (e) { $('d-ok').textContent = e.message; }
+    };
+    $('d-del').onclick = async () => {
+      if (!confirm(`Delete the application of ${a.applicant_name || a.applicant_email}? Its answers and attached files are removed for good.`)) return;
+      try { await api('/api/careers/applications/' + a.id, { method: 'DELETE' }); rows = rows.filter(x => x.id !== a.id); render(); closeApp(); }
+      catch (e) { $('d-ok').textContent = e.message; }
+    };
+  } catch (e) { $('d-box').innerHTML = `<p class="a-msg">${esc(e.message)}</p><button class="btn btn-sm" onclick="closeApp()">Close</button>`; }
+}
+function closeApp() { $('d-modal').hidden = true; current = null; }
+$('d-modal').addEventListener('click', e => { if (e.target.id === 'd-modal') closeApp(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('d-modal').hidden) closeApp(); });
+
+// the opening filter lists every opening, including drafts and closed ones
+async function loadJobs() {
+  try {
+    const jobs = await api('/api/landing/careers');
+    $('a-job').innerHTML = '<option value="">All openings</option>' + jobs.map(j => `<option value="${j.id}">${esc(j.title)}${j.status && j.status !== 'open' ? ' (' + j.status + ')' : ''}</option>`).join('');
+    if (params.get('job')) $('a-job').value = params.get('job');
+  } catch (_) { /* the filter stays at All openings */ }
+}
+
+$('a-job').onchange = $('a-status').onchange = () => load(false);
+$('a-more').onclick = () => load(true);
+
+async function start() { if (started) return; started = true; await loadJobs(); load(false); }
+document.addEventListener('pntc-access', start);
+if (window.PNTC_ME) start();
+
+async function logout() { await fetch('/api/auth/logout', { method: 'POST' }); location.href = '/admin/login.html'; }
+</script>
+</body>
+</html>

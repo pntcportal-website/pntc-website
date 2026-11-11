@@ -116,10 +116,10 @@ const LEADERS = [
 // pages that carry the enrollment popup and the footer social links
 const COLLEGE_PAGES = ['admissions.html', 'calendar.html', 'colleges.html', 'directory.html', 'index.html', 'merchandise.html', 'programs.html', 'research.html', 'resources.html', 'scholarships.html', 'student-life.html'];
 const SHS_PAGES = ['admissions.html', 'calendar.html', 'directory.html', 'index.html', 'resources.html', 'scholarships.html', 'strands.html', 'student-life.html'];
-const MAIN_PAGES = ['index.html', 'about.html', 'about-history.html', 'about-leadership.html', 'careers.html'].map(f => 'PNTC Main Landing Page/' + f);
+const MAIN_PAGES = ['index.html', 'about.html', 'about-history.html', 'about-leadership.html', 'careers.html', 'careers-apply.html'].map(f => 'PNTC Main Landing Page/' + f);
 const PNSC_PAGES = ['philnautical.html', 'philnautical-onboard-training.html'].map(f => 'PNTC Main Landing Page/' + f);
 const TRAINING_PAGES = ['index.html', 'maritime-courses.html', 'assessment.html', 'review-app.html', 'corporate.html', 'tesda.html'].map(f => 'PNTC Maritime Training and Assessment Center/' + f);
-const MAIN_SOCIAL_PAGES = ['index.html', 'about.html', 'about-history.html', 'about-leadership.html', 'careers.html', 'philnautical.html', 'philnautical-onboard-training.html'].map(f => 'PNTC Main Landing Page/' + f);
+const MAIN_SOCIAL_PAGES = ['index.html', 'about.html', 'about-history.html', 'about-leadership.html', 'careers.html', 'careers-apply.html', 'philnautical.html', 'philnautical-onboard-training.html'].map(f => 'PNTC Main Landing Page/' + f);
 
 const GROUPS = [
   { id: 'main-hero', site: 'Main Site', title: 'Home page hero', files: ['PNTC Main Landing Page/index.html'], fields: [
@@ -156,11 +156,12 @@ const GROUPS = [
       ...(p.unit ? [T(`lead.${p.id}.unit`, `${p.role} (${p.unit}): unit tag`)] : []),
     ]),
   ] },
-  { id: 'main-careers', site: 'Main Site', title: 'Careers page: heading and apply band', note: 'Job openings are managed in Landing Content, under Careers.', files: ['PNTC Main Landing Page/careers.html'], fields: [
+  { id: 'main-careers', site: 'Main Site', title: 'Careers page: heading and apply band', note: 'Job openings and their application forms are managed in Landing Page, under Careers. Applications arrive in Applications.', files: ['PNTC Main Landing Page/careers.html'], fields: [
     T('careers.eyebrow', 'Small label'), T('careers.mark', 'Heading, underlined word'), T('careers.rest', 'Heading, rest of the line'),
     T('careers.empty', 'Message when no opening matches a search'),
+    T('careers.none', 'Message when there are no openings'),
     T('careers.cta.tag', 'Yellow band, small label'), T('careers.cta.title', 'Yellow band, heading'),
-    { key: 'careers.email', label: 'HR email (also used by every Apply button)', type: 'email' },
+    { key: 'careers.email', label: 'HR email in the yellow band', type: 'email' },
   ] },
   { id: 'pnsc-overview', site: 'PNSC', title: 'PNSC overview page', files: ['PNTC Main Landing Page/philnautical.html'], fields: [
     T('pnsc.hero.tag', 'Hero, small tag'), T('pnsc.hero.line1', 'Hero, headline'), P('pnsc.hero.sub', 'Hero, description'),

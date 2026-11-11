@@ -18,7 +18,7 @@ const MAP_MTC = 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3861.1887
 const MAIN = 'PNTC Main Landing Page/', COL = 'PNTC Colleges/', MTC = 'PNTC Maritime Training and Assessment Center/';
 const SITES = {
   main: {
-    pages: ['index.html', 'about.html', 'about-history.html', 'about-leadership.html', 'careers.html'].map(f => MAIN + f), landing: MAIN + 'index.html',
+    pages: ['index.html', 'about.html', 'about-history.html', 'about-leadership.html', 'careers.html', 'careers-apply.html'].map(f => MAIN + f), landing: MAIN + 'index.html',
     gold: '#F3CF33', navy: '#100B33',
     band: { eyebrow: ['main.cta.eyebrow', 'Your Journey Begins Here'], line1: ['main.cta.line1', 'Ready to Become Part of'], line2: ['main.cta.line2', 'the PNTC Community?'],
       sub: ['main.cta.sub', 'Enrollment is open for Academic Year 2027-2028. Whether you are a Grade 10 completer, a college applicant, or a seafarer seeking certification, PNTC has a place for you.'],

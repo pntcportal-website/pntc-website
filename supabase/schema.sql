@@ -33,6 +33,8 @@ create table if not exists careers (
   location      text        default 'Dasmariñas, Cavite',
   description   text        default '',
   "badgeType"   text        default 'Full-Time',
+  status        text        default 'open',     -- open = on the website, draft or closed = admin only
+  form          jsonb,                          -- the application form for this opening
   "createdAt"   timestamptz default now(),
   "updatedAt"   timestamptz default now()
 );
@@ -122,6 +124,26 @@ create table if not exists activity_log (
 create index if not exists activity_log_created_idx on activity_log (created_at desc);
 create index if not exists activity_log_user_idx    on activity_log (user_email, created_at desc);
 
+-- ── Job applications (Careers > Apply for this role) ─────────────────────
+create table if not exists job_applications (
+  id               uuid        primary key default gen_random_uuid(),
+  created_at       timestamptz not null default now(),
+  career_id        uuid,
+  job_title        text,
+  applicant_name   text,
+  applicant_email  text,
+  answers          jsonb,
+  questions        jsonb,
+  files            jsonb,
+  status           text        default 'new',
+  notes            text
+);
+create index if not exists job_applications_created_idx on job_applications (created_at desc);
+create index if not exists job_applications_career_idx  on job_applications (career_id, created_at desc);
+-- older projects: add the opening status and form columns
+alter table careers add column if not exists status text default 'open';
+alter table careers add column if not exists form   jsonb;
+
 -- ── Security ────────────────────────────────────────────────────────────
 -- The website never talks to Supabase directly. Only the admin server does, with the service_role key,
 -- which bypasses these rules. Turning row level security on with no policies blocks everyone else.
@@ -134,6 +156,7 @@ alter table chat_sessions  enable row level security;
 alter table chat_messages  enable row level security;
 alter table agent_status   enable row level security;
 alter table activity_log   enable row level security;
+alter table job_applications enable row level security;
 
 -- ── Image storage bucket ────────────────────────────────────────────────
 -- Used only by the older Images (Supabase) screen in the admin console. Blog cover photos and article
@@ -141,6 +164,11 @@ alter table activity_log   enable row level security;
 insert into storage.buckets (id, name, public)
 values ('site-images', 'site-images', true)
 on conflict (id) do nothing;
+
+-- private storage for job application attachments (opened by HR through short-lived links only)
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('job-applications', 'job-applications', false, 5242880)
+on conflict (id) do update set public = false;
 
 -- ── Admin logins ────────────────────────────────────────────────────────
 -- Logins are Supabase Auth users and cannot be created with SQL here. The super admin is pntcportal@mypntc.edu.ph.

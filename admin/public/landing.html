@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PNTC Admin – Landing Page</title>
 <link rel="stylesheet" href="admin.css">
+<script src="careers-form-builder.js"></script>
 <style>
 .lp-tabs { display:flex; gap:.5rem; margin-bottom:1.5rem; flex-wrap:wrap; }
 .lp-tab {
@@ -127,7 +128,7 @@
         <div class="publish-info"><strong id="careers-count">0</strong> items · <span id="careers-pub-status">Not published yet</span></div>
         <button class="btn btn-primary" onclick="publish('careers')">Publish to Landing Page</button>
       </div>
-      <p style="font-size:.82rem;color:#667;margin:0 0 1rem;line-height:1.6">Each opening becomes a card on the Careers page with its own Apply button. The employment type (Full-Time, Part-Time, Contract) is also what visitors filter by. The page heading, the yellow apply band and the HR email are edited in <a href="content.html">Site Content</a>.</p>
+      <p style="font-size:.82rem;color:#667;margin:0 0 1rem;line-height:1.6">Each <b>Open</b> opening becomes a card on the Careers page, and its Apply button leads to the application form you build for it. Drafts and closed openings stay here only. Use <b>Preview</b> in the editor to check the card and the form, then click Publish to update the website. Applications arrive in <a href="applications.html">Applications</a>. The page heading, the yellow band and the HR email are edited in <a href="content.html">Site Content</a>.</p>
       <div style="display:flex;justify-content:flex-end;margin-bottom:1rem">
         <button class="btn btn-primary" onclick="openModal('careers')">+ Add Job Opening</button>
       </div>
@@ -167,6 +168,7 @@
     <div class="modal-title" id="modal-title">Add Item</div>
     <div id="modal-form"></div>
     <div class="modal-footer">
+      <button class="btn" id="modal-preview-btn" onclick="previewCareer()" hidden style="margin-right:auto">Preview</button>
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" id="modal-save-btn" onclick="saveItem()">Save</button>
     </div>
@@ -179,6 +181,7 @@ let activeTab  = 'research';
 let editId     = null;
 let editType   = null;
 const data     = { research: [], careers: [], directory: [], merchandise: [] };
+let appCounts  = {};
 
 // ── Tab switching ──────────────────────────────────────────────
 document.querySelectorAll('.lp-tab').forEach(btn => {
@@ -193,9 +196,11 @@ document.querySelectorAll('.lp-tab').forEach(btn => {
 
 // ── Load all data ──────────────────────────────────────────────
 async function loadAll() {
+  fetch('/api/careers/applications/counts').then(r => r.ok ? r.json() : {}).then(c => { appCounts = c || {}; renderList('careers'); }).catch(() => {});
   for (const type of ['research','careers','directory','merchandise']) {
     const r = await fetch('/api/landing/' + type);
-    data[type] = await r.json();
+    const d = await r.json();
+    data[type] = Array.isArray(d) ? d : [];
     renderList(type);
   }
 }
@@ -246,10 +251,11 @@ function renderItemRow(type, item) {
   }
   return `<div class="item-row">
     <div class="item-row-body">
-      <div class="item-row-title">${esc(title)}</div>
+      <div class="item-row-title">${esc(title)}${type === 'careers' ? careersRowExtras(item, appCounts) : ''}</div>
       <div class="item-row-sub">${esc(sub)}</div>
     </div>
     <div class="item-row-actions">
+      ${type === 'careers' ? `<button class="btn" style="padding:.35rem .85rem;font-size:.78rem" onclick="previewCareer('${item.id}')">Preview</button>` : ''}
       <button class="btn" style="padding:.35rem .85rem;font-size:.78rem" onclick="openModal('${type}','${item.id}')">Edit</button>
       <button class="btn" style="padding:.35rem .85rem;font-size:.78rem;color:#f87171" onclick="deleteItem('${type}','${item.id}')">Delete</button>
     </div>
@@ -266,6 +272,8 @@ function openModal(type, id) {
   editId   = id || null;
   const existing = id ? data[type].find(i => i.id === id) : null;
   document.getElementById('modal-title').textContent = (id ? 'Edit' : 'Add') + ' — ' + typeLabel(type);
+  document.querySelector('#modal .modal-box').classList.remove('cf-wide');
+  document.getElementById('modal-preview-btn').hidden = true;
   document.getElementById('modal-form').innerHTML = buildForm(type, existing);
   document.getElementById('modal').removeAttribute('hidden');
 }
@@ -313,7 +321,7 @@ function formResearch(item) {
 // Careers form
 function formCareers(item) {
   const badge = item?.badgeType || 'Full-Time';
-  return fi('Job Title', 'f-title', item?.title, 'e.g. Faculty Member – BS Maritime')
+  return careersFormHtml(item) + fi('Job Title', 'f-title', item?.title, 'e.g. Faculty Member – BS Maritime')
        + fi('Department', 'f-department', item?.department, 'e.g. Maritime Department')
        + fi('Location', 'f-location', item?.location || 'Dasmariñas, Cavite', 'Dasmariñas, Cavite')
        + ta('Description / Requirements', 'f-description', item?.description, 'Describe the role and qualifications...')
@@ -325,7 +333,26 @@ function formCareers(item) {
       <div class="badge-opt b-contract-preview ${badge==='Contract'?'sel':''}" data-badge="Contract" onclick="selectBadge(this)">Contract</div>
     </div>
     <input type="hidden" id="f-badge-type" value="${badge}">
-  </div>`;
+  </div>` + careersFormBuilderHtml(item);
+}
+
+// the opening as it is in the editor
+function careerFromEditor() {
+  return {
+    title:       document.getElementById('f-title')?.value       || '',
+    department:  document.getElementById('f-department')?.value  || '',
+    location:    document.getElementById('f-location')?.value    || 'Dasmariñas, Cavite',
+    description: document.getElementById('f-description')?.value || '',
+    badgeType:   document.getElementById('f-badge-type')?.value  || 'Full-Time',
+    ...careersFormValue()
+  };
+}
+
+// Preview: from the editor (unsaved changes included), or a saved opening from the list
+function previewCareer(id) {
+  const job = id ? data.careers.find(i => i.id === id) : careerFromEditor();
+  if (!job) return;
+  careersPreview({ id: job.id || 'preview', title: job.title, department: job.department, location: job.location || 'Dasmariñas, Cavite', badgeType: job.badgeType || 'Full-Time', description: job.description, form: job.form && job.form.fields && job.form.fields.length ? job.form : careersDefaultForm() });
 }
 
 function selectBadge(el) {
@@ -415,15 +442,13 @@ async function saveItem() {
         year:  document.getElementById('f-year')?.value  || ''
       };
       break;
-    case 'careers':
-      body = {
-        title:       document.getElementById('f-title')?.value       || '',
-        department:  document.getElementById('f-department')?.value  || '',
-        location:    document.getElementById('f-location')?.value    || 'Dasmariñas, Cavite',
-        description: document.getElementById('f-description')?.value || '',
-        badgeType:   document.getElementById('f-badge-type')?.value  || 'Full-Time'
-      };
+    case 'careers': {
+      const problem = careersFormProblem();
+      if (!document.getElementById('f-title')?.value.trim()) { alert('Add the job title.'); return; }
+      if (problem) { alert(problem); return; }
+      body = careerFromEditor();
       break;
+    }
     case 'directory': {
       const inputs = document.querySelectorAll('#contacts-list input');
       const contacts = Array.from(inputs).map(i => i.value.trim()).filter(Boolean);
@@ -451,6 +476,7 @@ async function saveItem() {
   const method = editId ? 'PUT' : 'POST';
   const r      = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
   const saved  = await r.json();
+  if (!r.ok || saved.error) { alert('Not saved: ' + (saved.error || r.status)); return; }
 
   if (editId) {
     const idx = data[type].findIndex(i => i.id === editId);
