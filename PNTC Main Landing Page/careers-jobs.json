@@ -1,3 +1,55 @@
 {
- "jobs": []
+ "jobs": [
+  {
+   "id": "609649ea-ce45-4557-a5bf-8ca77fb1f42b",
+   "title": "Social Science Instructor",
+   "department": "Academic Department",
+   "location": "Dasmariñas, Cavite",
+   "badgeType": "Full-Time",
+   "description": "Qualifications:\nGraduate of Bachelor of Science in Sociology/Social Science\nWith Master’s Degree in Sociology/Social Science\nPreferably with license in teaching\nWith IMO Model 6.09 and 3.12\nWilling to work on-site at Dasmariñas City, Cavite",
+   "form": {
+    "intro": "Please fill in the form below. Fields marked with a star are required.",
+    "success": "Thank you for applying. Our HR office will review your application and contact you if you are shortlisted.",
+    "fields": [
+     {
+      "id": "name",
+      "type": "short",
+      "label": "Full name",
+      "required": true
+     },
+     {
+      "id": "email",
+      "type": "email",
+      "label": "Email address",
+      "required": true
+     },
+     {
+      "id": "phone",
+      "type": "phone",
+      "label": "Mobile number",
+      "required": true
+     },
+     {
+      "id": "address",
+      "type": "short",
+      "label": "Current address",
+      "required": false
+     },
+     {
+      "id": "resume",
+      "type": "file",
+      "label": "Résumé or CV",
+      "required": true,
+      "help": "PDF, Word or image file, up to 5 MB."
+     },
+     {
+      "id": "letter",
+      "type": "paragraph",
+      "label": "Cover letter or short introduction",
+      "required": false
+     }
+    ]
+   }
+  }
+ ]
 }
