@@ -238,6 +238,7 @@ const GROUPS = [
     P('training.hero.sub', 'Description'), T('training.hero.bold', 'Bold ending of the description'),
     T('training.hero.btn1', 'First button, text'), H('training.hero.btn1.href', 'First button, link'),
     T('training.hero.btn2', 'Second button, text'), H('training.hero.btn2.href', 'Second button, link'),
+    ...[1, 2, 3, 4].flatMap(n => [T('training.stat' + n + '.n', 'Number box ' + n + ': big text'), T('training.stat' + n + '.l', 'Number box ' + n + ': label')]),
   ] },
   { id: 'training-assess', site: 'Training Center', title: 'Assessment page: headings', note: 'The list of assessments and their requirements is edited in Course list.', files: ['PNTC Maritime Training and Assessment Center/assessment.html'], fields: [
     T('training.assess.eyebrow', 'Small label'), T('training.assess.h2a', 'Heading, first word'), T('training.assess.h2b', 'Heading, highlighted word'),
