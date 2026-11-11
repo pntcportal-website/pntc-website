@@ -402,18 +402,24 @@
   });
 
   // ── Session list ──────────────────────────────────────────────
+  // Light on the Supabase free tier: after the first load, each check asks only for chats that changed
+  // since the newest one on screen (usually nothing). A full reload runs every 10 minutes to stay in step.
+  var newestAt = null, lastFull = 0;
   async function loadSessions() {
     try {
-      var r = await fetch(API + '/sessions');
+      var full = !newestAt || Date.now() - lastFull > 600000;
+      var r = await fetch(API + '/sessions' + (full ? '' : '?since=' + encodeURIComponent(newestAt)));
       if (r.status === 401) { pollStatus.textContent = 'Not authenticated'; return; }
       var list = await r.json();
       if (!Array.isArray(list)) return;
       var prevUnread = {};
       Object.keys(sessions).forEach(function (id) { prevUnread[id] = sessions[id].unread_count || 0; });
-      sessions = {};
+      if (full) { sessions = {}; lastFull = Date.now(); }
       var hasNewUnread = false;
       list.forEach(function (s) {
+        if (s.id === activeId) s.unread_count = 0;
         sessions[s.id] = s;
+        if (!newestAt || s.updated_at > newestAt) newestAt = s.updated_at;
         if (s.id !== activeId && (s.unread_count || 0) > (prevUnread[s.id] || 0)) hasNewUnread = true;
       });
       if (hasNewUnread) playNotifSound();

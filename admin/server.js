@@ -1250,25 +1250,28 @@ app.get('/api/chat/sessions', requireAuth, async (req, res) => {
   try {
     // Kept small for the Supabase free tier: the 100 most recent chats, and two queries in total
     // (latest messages and unread visitor messages for all of them) instead of two per chat.
-    const { data: sessions, error } = await supabase
+    // ?since=<newest updated_at the screen has> returns only the chats that changed after it (usually none).
+    let sq = supabase
       .from('chat_sessions')
       .select('id,visitor_name,visitor_email,visitor_contact,concern_type,concern_background,site,status,created_at,updated_at')
       .order('updated_at', { ascending: false })
       .limit(100);
+    if (req.query.since) sq = sq.gt('updated_at', req.query.since);
+    const { data: sessions, error } = await sq;
     if (error) throw error;
     const ids = (sessions || []).map(s => s.id);
     const last = {}, unread = {};
     if (ids.length) {
       const [{ data: recent }, { data: notRead }] = await Promise.all([
         supabase.from('chat_messages').select('session_id,message,sender,created_at')
-          .in('session_id', ids).order('created_at', { ascending: false }).limit(400),
+          .in('session_id', ids).order('created_at', { ascending: false }).limit(Math.min(400, ids.length * 4)),
         supabase.from('chat_messages').select('session_id')
           .in('session_id', ids).eq('sender', 'visitor').eq('read', false).limit(1000),
       ]);
       for (const m of recent || []) if (!last[m.session_id]) last[m.session_id] = { message: m.message, sender: m.sender, created_at: m.created_at };
       for (const m of notRead || []) unread[m.session_id] = (unread[m.session_id] || 0) + 1;
     }
-    res.json((sessions || []).map(s => ({ ...s, lastMessage: last[s.id] || null, unread: unread[s.id] || 0 })));
+    res.json((sessions || []).map(s => ({ ...s, lastMessage: last[s.id] || null, unread_count: unread[s.id] || 0 })));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1307,11 +1310,12 @@ app.post('/api/chat/session/:id/reply', requireAuth, async (req, res) => {
 });
 
 // Admin: close or reopen session
-app.post('/api/chat/session/:id/status', requireAuth, async (req, res) => {
+app.post('/api/chat/session/:id/status', async (req, res) => {
   const { status } = req.body;
   if (!['open', 'closed'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  if (status !== 'closed' && !(await currentUser(req))) return res.status(401).json({ error: 'Not authenticated' });
   try {
-    const { error } = await supabase.from('chat_sessions').update({ status }).eq('id', req.params.id);
+    const { error } = await supabase.from('chat_sessions').update({ status, updated_at: new Date().toISOString() }).eq('id', req.params.id);
     if (error) throw error;
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
