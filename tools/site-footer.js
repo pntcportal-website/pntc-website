@@ -19,6 +19,8 @@ const MAIN = 'PNTC Main Landing Page/', COL = 'PNTC Colleges/', MTC = 'PNTC Mari
 const SITES = {
   main: {
     pages: ['index.html', 'about.html', 'about-history.html', 'about-leadership.html', 'careers.html', 'careers-apply.html'].map(f => MAIN + f), landing: MAIN + 'index.html',
+    // pages for job seekers keep the footer but not the enrollment band (they have their own apply band)
+    noBand: ['careers.html', 'careers-apply.html'].map(f => MAIN + f),
     gold: '#F3CF33', navy: '#100B33',
     band: { eyebrow: ['main.cta.eyebrow', 'Your Journey Begins Here'], line1: ['main.cta.line1', 'Ready to Become Part of'], line2: ['main.cta.line2', 'the PNTC Community?'],
       sub: ['main.cta.sub', 'Enrollment is open for Academic Year 2027-2028. Whether you are a Grade 10 completer, a college applicant, or a seafarer seeking certification, PNTC has a place for you.'],
@@ -208,7 +210,7 @@ for (const [id, s] of Object.entries(SITES)) {
       else if (h.includes('<script src="/admin/chat-widget.js"')) h = h.replace('<script src="/admin/chat-widget.js"', '<!--SF-->\n\n<script src="/admin/chat-widget.js"');
       else h = h.replace('</body>', '<!--SF-->\n</body>');
     }
-    h = h.replace('<!--SF-->', block(id, s));
+    h = h.replace('<!--SF-->', (s.noBand || []).includes(rel) ? block(id, s).replace(/<section class="pf-cta[^"]*"[\s\S]*?<\/section>\n?/, '') : block(id, s));
     // in place when it is already there, so the page tools never reorder each other's style blocks
     h = /<style id="site-footer-css">/.test(h) ? h.replace(/<style id="site-footer-css">[\s\S]*?<\/style>/, () => css(s)) : h.replace('</head>', css(s) + '\n</head>');
     // texts the admin console already holds on this page or on the site's landing page
