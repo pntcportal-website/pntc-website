@@ -122,7 +122,7 @@ const obt = `<section class="ps-hero" id="obt">
     <h1 class="ps-h1">${slot('obt.hero.line1', 'On Board')} <em>${slot('obt.hero.line2', 'Training Program')}</em></h1>
     <p class="ps-sub">${slot('obt.hero.sub', 'On board training for maritime cadets through PhilNautical Shipping Corporation, aboard MV Aman Sinaya and with our maritime partners.')}</p>
     <div class="ps-hero-btns">
-      <a class="ps-btn ps-btn-gold" href="#partners">${slot('obt.hero.btn1', 'Our Maritime Partners')}</a>
+      <a class="ps-btn ps-btn-gold" href="#about-program">${slot('obt.hero.btn1', 'About the Program')}</a>
       <a class="ps-btn ps-btn-line" href="/philnautical#vessel">${slot('obt.hero.btn2', 'Meet the Vessel')}</a>
     </div>
   </div>
@@ -141,18 +141,6 @@ const obt = `<section class="ps-hero" id="obt">
       <div class="ps-card reveal"><span class="ps-ico">${ICON.clock}</span><h3>${slot('obt.card3.title', 'Graduate Without Delay')}</h3><p>${slot('obt.card3.text', 'A dedicated training vessel helps students complete the required length of seagoing service on time.')}</p></div>
       <div class="ps-card reveal"><span class="ps-ico">${ICON.people}</span><h3>${slot('obt.card4.title', 'For Deck and Engine Cadets')}</h3><p>${slot('obt.card4.text', 'For BS Marine Transportation and BS Marine Engineering students. Maritime students from other schools are also accepted.')}</p></div>
     </div>
-  </div>
-</section>
-
-<section class="ps-sec ps-soft" id="partners">
-  <div class="ps-wrap">
-    <div class="reveal">
-      <p class="ps-eyebrow">${slot('obt.partners.eyebrow', 'Our Maritime Partners')}</p>
-      <h2 class="ps-h2">${slot('obt.partners.title', 'Training With the')} <em>${slot('obt.partners.mark', 'Industry')}</em></h2>
-      <p class="ps-lead">${slot('obt.partners.lead', 'Our maritime partners take PNTC cadets on board their vessels for training.')}</p>
-    </div>
-    <ul class="ps-partners reveal" id="ps-partners">${slot('obt.partners.list', PARTNERS)}</ul>
-    <p class="ps-partners-note">${slot('obt.partners.note', 'Partner names and logos will be posted here soon.')}</p>
   </div>
 </section>
 

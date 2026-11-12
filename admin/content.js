@@ -173,14 +173,11 @@ const GROUPS = [
     T('pnsc.band.eyebrow', 'Program band, small label'), T('pnsc.band.title', 'Program band, heading'), P('pnsc.band.text', 'Program band, text'),
     T('pnsc.band.was', 'Program band, former name tag'), T('pnsc.band.btn', 'Program band, button'),
   ] },
-  { id: 'pnsc-obt', site: 'PNSC', title: 'On Board Training Program page', note: 'Partner logos are picked up by file name. Upload them in Images, Main Site, as pnsc-partner-01.png, pnsc-partner-02.png and so on (png, jpg or webp), in the same order as the names below, with no numbers skipped.', files: ['PNTC Main Landing Page/philnautical-onboard-training.html'], fields: [
+  { id: 'pnsc-obt', site: 'PNSC', title: 'On Board Training Program page', files: ['PNTC Main Landing Page/philnautical-onboard-training.html'], fields: [
     T('obt.hero.tag', 'Hero, small tag'), T('obt.hero.line1', 'Hero, headline start'), T('obt.hero.line2', 'Hero, headline in gold'), P('obt.hero.sub', 'Hero, description'),
     T('obt.hero.btn1', 'Hero, first button'), T('obt.hero.btn2', 'Hero, second button'),
     T('obt.about.eyebrow', 'Program, small label'), T('obt.about.title', 'Program, heading start'), T('obt.about.mark', 'Program, highlighted word'), P('obt.about.lead', 'Program, introduction'),
     ...[1, 2, 3, 4].flatMap(n => [T('obt.card' + n + '.title', 'Card ' + n + ', title'), P('obt.card' + n + '.text', 'Card ' + n + ', text')]),
-    T('obt.partners.eyebrow', 'Partners, small label'), T('obt.partners.title', 'Partners, heading start'), T('obt.partners.mark', 'Partners, highlighted word'), P('obt.partners.lead', 'Partners, introduction'),
-    L('obt.partners.list', 'Partner names (one per line, in logo order)', '<li>{}</li>'),
-    T('obt.partners.note', 'Note under the partners', { optional: true }),
     T('obt.vessel.eyebrow', 'Vessel, small label'), T('obt.vessel.title', 'Vessel, heading start'), T('obt.vessel.mark', 'Vessel, highlighted name'), P('obt.vessel.text', 'Vessel, text'), T('obt.vessel.btn', 'Vessel, button'),
   ] },
   { id: 'college-hero', site: 'Colleges', title: 'College hero', files: ['PNTC Colleges/index.html'], fields: [
