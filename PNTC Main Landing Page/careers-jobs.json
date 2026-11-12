@@ -101,6 +101,57 @@
      }
     ]
    }
+  },
+  {
+   "id": "df53a38a-c05e-4551-8a14-dc145d666f76",
+   "title": "LABORATORY CUSTODIAN",
+   "department": "SITE FACILITY OFFICE",
+   "location": "Dasmariñas, Cavite",
+   "badgeType": "Full-Time",
+   "description": "-Graduate of Bachelor's Degree in Mechanical/Electrical Engineering\n-MS Applications Literate\n-Willing to work in Dasmariñas City, Cavite ",
+   "form": {
+    "intro": "Please fill in the form below. Fields marked with a star are required.",
+    "success": "Thank you for applying. Our HR office will review your application and contact you if you are shortlisted.",
+    "fields": [
+     {
+      "id": "name",
+      "type": "short",
+      "label": "Full name",
+      "required": true
+     },
+     {
+      "id": "email",
+      "type": "email",
+      "label": "Email address",
+      "required": true
+     },
+     {
+      "id": "phone",
+      "type": "phone",
+      "label": "Mobile number",
+      "required": true
+     },
+     {
+      "id": "address",
+      "type": "short",
+      "label": "Current address",
+      "required": false
+     },
+     {
+      "id": "resume",
+      "type": "file",
+      "label": "Résumé or CV",
+      "required": true,
+      "help": "PDF, Word or image file, up to 5 MB."
+     },
+     {
+      "id": "letter",
+      "type": "paragraph",
+      "label": "Cover letter or short introduction",
+      "required": false
+     }
+    ]
+   }
   }
  ]
 }
