@@ -14,7 +14,7 @@
       {
        "code": "BT",
        "name": "Basic Training (Revised with PSSR)",
-       "days": "10"
+       "days": "11"
       },
       {
        "code": "BT-PSSR",
@@ -109,7 +109,7 @@
       {
        "code": "BTOC",
        "name": "Basic Training for Oil and Chemical Tanker Cargo Operations",
-       "days": "7"
+       "days": "6.5"
       },
       {
        "code": "BTLG",
