@@ -1,12 +1,12 @@
 {
  "jobs": [
   {
-   "id": "609649ea-ce45-4557-a5bf-8ca77fb1f42b",
-   "title": "Social Science Instructor",
-   "department": "Academic Department",
+   "id": "30c0bd6d-0671-4860-a20d-cd4f88c580e1",
+   "title": "ONBOARD TRAINING OFFICER",
+   "department": "ONBOARD TRAINING OFFICE",
    "location": "Dasmariñas, Cavite",
    "badgeType": "Full-Time",
-   "description": "Qualifications:\nGraduate of Bachelor of Science in Sociology/Social Science\nWith Master’s Degree in Sociology/Social Science\nPreferably with license in teaching\nWith IMO Model 6.09 and 3.12\nWilling to work on-site at Dasmariñas City, Cavite",
+   "description": "-Graduate of Bachelor's Degree in Marine Engineering\n-MS Applications Literate\n-Willing to work in Dasmariñas City, Cavite",
    "form": {
     "intro": "Please fill in the form below. Fields marked with a star are required.",
     "success": "Thank you for applying. Our HR office will review your application and contact you if you are shortlisted.",
@@ -52,12 +52,12 @@
    }
   },
   {
-   "id": "30c0bd6d-0671-4860-a20d-cd4f88c580e1",
-   "title": "ONBOARD TRAINING OFFICER",
+   "id": "7e400e35-458c-428c-a8af-acd7b0403aec",
+   "title": "ONBOARD TRAINING STAFF",
    "department": "ONBOARD TRAINING OFFICE",
    "location": "Dasmariñas, Cavite",
    "badgeType": "Full-Time",
-   "description": "-Graduate of Bachelor's Degree in Marine Engineering\n-MS Applications Literate\n-Willing to work in Dasmariñas City, Cavite",
+   "description": "-Graduate of any 4 -year related course\n-MS Applications Literate\n-Willing to work in Dasmariñas City, Cavite",
    "form": {
     "intro": "Please fill in the form below. Fields marked with a star are required.",
     "success": "Thank you for applying. Our HR office will review your application and contact you if you are shortlisted.",
