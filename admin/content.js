@@ -161,7 +161,8 @@ const GROUPS = [
     T('careers.empty', 'Message when no opening matches a search'),
     T('careers.none', 'Message when there are no openings'),
     T('careers.cta.tag', 'Yellow band, small label'), T('careers.cta.title', 'Yellow band, heading'),
-    { key: 'careers.email', label: 'HR email in the yellow band', type: 'email' },
+    T('careers.email.label', 'Yellow band, first email location'), { key: 'careers.email', label: 'Yellow band, first recruitment email', type: 'email' },
+    T('careers.email2.label', 'Yellow band, second email location'), { key: 'careers.email2', label: 'Yellow band, second recruitment email', type: 'email' },
   ] },
   { id: 'pnsc-overview', site: 'PNSC', title: 'PNSC overview page', files: ['PNTC Main Landing Page/philnautical.html'], fields: [
     T('pnsc.hero.tag', 'Hero, small tag'), T('pnsc.hero.line1', 'Hero, headline'), P('pnsc.hero.sub', 'Hero, description'),
@@ -302,6 +303,14 @@ const GROUPS = [
       T(`footer.${id}.addr`, 'Footer, address'), T(`footer.${id}.phone`, 'Footer, phone shown'), H(`footer.${id}.phone.href`, 'Footer, phone link (tel:+63...)'),
       { key: `footer.${id}.email`, label: 'Footer, email', type: 'email' },
       ...(id === 'college' || id === 'training' ? [T(`footer.${id}.hours`, 'Footer, office hours')] : []),
+      // Main site: both locations
+      ...(id === 'main' ? [T('footer.main.loc', 'Footer, first location name'),
+        T('footer.main.mnl.loc', 'Footer, second location name'), T('footer.main.mnl.addr', 'Footer, second location address'),
+        T('footer.main.mnl.phone', 'Footer, second location phone shown'), H('footer.main.mnl.phone.href', 'Footer, second location phone link (tel:+63...)'),
+        { key: 'footer.main.mnl.email', label: 'Footer, second location email', type: 'email' }] : []),
+      // Training Center: Client Relations Officers
+      ...(id === 'training' ? [T('footer.training.cro.title', 'Footer, officers heading'),
+        ...[1, 2, 3, 4].flatMap(n => [T(`footer.training.cro${n}`, `Footer, officer number ${n} shown`), H(`footer.training.cro${n}.href`, `Footer, officer number ${n} link (tel:+63...)`)])] : []),
       T(`footer.${id}.copy`, 'Footer, name in the copyright line'),
     ] })),
 ];

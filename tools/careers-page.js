@@ -55,7 +55,10 @@ const tail = `
         <p class="cr-cta-tag">${slot('careers.cta.tag', 'Apply')}</p>
         <h3 class="cr-cta-h">${slot('careers.cta.title', 'Send your application to our HR office')}</h3>
       </div>
-      <a class="cr-cta-btn" id="cr-email" data-c="careers.email" href="mailto:${CAREERS.HR_EMAIL}">${slot('careers.email', CAREERS.HR_EMAIL)}</a>
+      <div class="cr-cta-mails">
+        <a class="cr-cta-btn" id="cr-email" data-c="careers.email" href="mailto:${CAREERS.HR_EMAIL}"><span class="cr-cta-loc">${slot('careers.email.label', 'Dasmariñas, Cavite')}</span>${slot('careers.email', CAREERS.HR_EMAIL)}</a>
+        <a class="cr-cta-btn" data-c="careers.email2" href="mailto:recruitment.manila@mypntc.edu.ph"><span class="cr-cta-loc">${slot('careers.email2.label', 'Intramuros, Manila')}</span>${slot('careers.email2', 'recruitment.manila@mypntc.edu.ph')}</a>
+      </div>
     </div>
   </div>
 </section>`;

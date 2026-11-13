@@ -27,8 +27,10 @@ const SITES = {
       btns: [['main.cta.btn1', 'Apply to College →', '/college/', 'main.cta.btn1.href'], ['main.cta.btn2', 'Apply to SHS →', '/shs/', 'main.cta.btn2.href'], ['main.cta.btn3', 'MTC Training Rates →', '/training/', 'main.cta.btn3.href']] },
     tagline: 'PNTC Colleges, Inc.', desc: 'With Virtue and Quality at the heart of its policies, PNTC Colleges is a well-known maritime school and training center and a growing institution for business education.',
     linksTitle: 'Explore', links: [['About PNTC', '/about'], ['PNTC Colleges', '/college/'], ['Senior High School', '/shs/'], ['Maritime Training Center', '/training/'], ['PhilNautical Shipping (PNSC)', '/philnautical'], ['Careers', '/careers']],
-    contact: { addr: "Governor's Drive, Brgy. Paliparan I, Dasmariñas, Cavite 4114", phone: ['(046) 323-2424', 'tel:+63463232424'], email: 'info@pntc.edu.ph' },
-    map: MAP_DASMA, copy: 'PNTC Colleges, Inc.', badge: 'CHED and MARINA Accredited', social: 'social',
+    contact: { label: 'Dasmariñas, Cavite', addr: "Governor's Drive, Brgy. Paliparan I, Dasmariñas, Cavite 4114", phone: ['(046) 323-2424', 'tel:+63463232424'], email: 'info@pntc.edu.ph' },
+    // the shared pages (home, about, careers) show both locations
+    contact2: { label: 'Intramuros, Manila', addr: '5th Floor, Intramuros Corporate Plaza, Recoletos St, Intramuros, Manila 1002', phone: ['0917 182 9158', 'tel:+639171829158'], email: 'mtac.marketing@mypntc.edu.ph' },
+    map: MAP_DASMA, map2: MAP_MTC, copy: 'PNTC Colleges, Inc.', badge: 'CHED and MARINA Accredited', social: 'social',
   },
   pnsc: {
     pages: ['philnautical.html', 'philnautical-onboard-training.html'].map(f => MAIN + f), landing: MAIN + 'philnautical.html',
@@ -67,12 +69,13 @@ const SITES = {
     pages: fs.readdirSync(path.join(ROOT, MTC)).filter(f => f.endsWith('.html')).map(f => MTC + f), landing: MTC + 'index.html',
     gold: '#F3CF33', navy: '#100B33',
     band: { eyebrow: ['training.cta.eyebrow', 'Get In Touch'], line1: ['training.cta.mark', 'PNTC Maritime'], line2: ['training.cta.rest', 'Training and Assessment Center'],
-      sub: ['training.cta.sub', 'Our admissions staff are ready to assist you. Visit us in person or contact us through any of the channels below. We usually respond within the same business day.'],
-      btns: [['training.cta.btn1', 'Email Admissions', 'mailto:admissions@mypntc.edu.ph', 'training.cta.btn1.href'], ['training.cta.btn2', '0917 182 9158', 'tel:+639171829158', 'training.cta.btn2.href']],
+      sub: ['training.cta.sub', 'Our marketing team is ready to assist you. Visit us in person or contact us through any of the channels below. We usually respond within the same business day.'],
+      btns: [['training.cta.btn1', 'Email Our Marketing Team', 'mailto:mtac.marketing@mypntc.edu.ph', 'training.cta.btn1.href'], ['training.cta.btn2', '0917 182 9158', 'tel:+639171829158', 'training.cta.btn2.href']],
       note: ['training.cta.note', 'Walk-in inquiries are welcome Monday to Saturday, 8:00 AM to 5:30 PM, at the 5th Floor, Intramuros Corporate Plaza, Manila.'] },
     tagline: 'Maritime Training and Assessment Center', desc: 'STCW and MARINA courses and competence assessment for seafarers in Intramuros, Manila.',
     linksTitle: 'Training', links: [['Maritime Courses', '/training/maritime-courses'], ['Assessment', '/training/assessment'], ['Review App', '/training/review-app'], ['Corporate', '/training/corporate'], ['TESDA', '/training/tesda'], ['Verify Certificate', 'https://secur-a-print.net/pntc2.sap'], ['PNTC Main Site', '/']],
-    contact: { addr: '5th Floor, Intramuros Corporate Plaza, Recoletos St, Intramuros, Manila 1002', phone: ['0917 182 9158', 'tel:+639171829158'], email: 'admissions@mypntc.edu.ph', hours: 'Monday to Saturday, 8:00 AM to 5:30 PM' },
+    contact: { addr: '5th Floor, Intramuros Corporate Plaza, Recoletos St, Intramuros, Manila 1002', phone: ['0917 182 9158', 'tel:+639171829158'], email: 'mtac.marketing@mypntc.edu.ph', hours: 'Monday to Saturday, 8:00 AM to 5:30 PM',
+      cro: { title: 'Client Relations Officers', numbers: ['(0917) 182 9136', '(0917) 143 8382', '(0917) 326 2874', '(0917) 326 2855'] } },
     map: MAP_MTC, copy: 'PNTC Maritime Training and Assessment Center', badge: 'Part of the PNTC Education Group', social: 'mtc.social',
   },
 };
@@ -99,12 +102,19 @@ function block(id, s) {
   const soc = [['fb', 'Facebook'], ['tiktok', 'TikTok'], ['ig', 'Instagram'], ['yt', 'YouTube'], ...(s.social === 'social' ? [['li', 'LinkedIn']] : [])]
     .map(([k, label]) => `<a class="pf-soc" href="" ${ext} aria-label="${label}" data-c="${s.social}.${k}">${ICON[k]}</a>`).join('');
   const c = s.contact;
-  const rows = [
-    `<div class="pf-row">${ICON.pin}<span>${slot(f + '.addr', c.addr)}</span></div>`,
-    `<div class="pf-row">${ICON.phone}<a data-c="${f}.phone.href" href="${c.phone[1]}">${slot(f + '.phone', c.phone[0])}</a></div>`,
-    `<div class="pf-row">${ICON.mail}<a data-c="${f}.email" href="mailto:${c.email}">${slot(f + '.email', c.email)}</a></div>`,
-    c.hours ? `<div class="pf-row">${ICON.clock}<span>${slot(f + '.hours', c.hours)}</span></div>` : '',
+  const tel = n => 'tel:+63' + n.replace(/\D/g, '').replace(/^0/, '');
+  // p = slot prefix of one location: footer.<site> for the first, footer.<site>.mnl for the Intramuros one on the Main site
+  const place = (c, p, label) => [
+    label ? `<p class="pf-loc">${slot(p + '.loc', c.label)}</p>` : '',
+    `<div class="pf-row">${ICON.pin}<span>${slot(p + '.addr', c.addr)}</span></div>`,
+    `<div class="pf-row">${ICON.phone}<a data-c="${p}.phone.href" href="${c.phone[1]}">${slot(p + '.phone', c.phone[0])}</a></div>`,
+    c.cro ? `<div class="pf-row pf-cro">${ICON.phone}<span><span class="pf-cro-t">${slot(p + '.cro.title', c.cro.title)}</span>${c.cro.numbers.map((n, i) => `<a data-c="${p}.cro${i + 1}.href" href="${tel(n)}">${slot(p + '.cro' + (i + 1), n)}</a>`).join('')}</span></div>` : '',
+    `<div class="pf-row">${ICON.mail}<a data-c="${p}.email" href="mailto:${c.email}">${slot(p + '.email', c.email)}</a></div>`,
+    c.hours ? `<div class="pf-row">${ICON.clock}<span>${slot(p + '.hours', c.hours)}</span></div>` : '',
   ].filter(Boolean).join('\n        ');
+  const rows = place(c, f, !!s.contact2) + (s.contact2 ? '\n        ' + place(s.contact2, f + '.mnl', true) : '');
+  const maps = [[s.map, c.label], ...(s.map2 ? [[s.map2, s.contact2.label]] : [])]
+    .map(([src, label]) => `${s.map2 ? `<p class="pf-loc">${label}</p>` : ''}<div class="pf-map"><iframe src="${src}" title="Map to ${label || s.tagline}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></div>`).join('\n      ');
   return `<!--site-footer-->
 <section class="pf-cta pf-${id}" id="join">
   <p class="pf-eyebrow">${slot(b.eyebrow[0], b.eyebrow[1])}</p>
@@ -134,7 +144,7 @@ function block(id, s) {
     </div>
     <div class="pf-col">
       <h4>Find Us</h4>
-      <div class="pf-map"><iframe src="${s.map}" title="Map to ${s.tagline}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></div>
+      ${maps}
     </div>
   </div>
   <div class="pf-bottom">
@@ -179,6 +189,11 @@ body .pf-row svg{flex:none;width:14px;height:14px;margin-top:3px;fill:none;strok
 body .pf-row span,body .pf-row a{font-size:.8rem;line-height:1.55;color:rgba(255,255,255,.88)}
 body .pf-row a:hover{color:var(--pf-gold)}
 body .pf-map{width:100%;max-width:280px;aspect-ratio:4/3;border:1px solid rgba(255,255,255,.1);border-radius:4px;overflow:hidden}
+body .pf-loc{margin:.4rem 0 -.2rem;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--pf-gold)}
+body .pf-loc:first-child{margin-top:0}
+body .pf-col .pf-loc + .pf-map{margin-bottom:1rem}
+body .pf-cro > span{display:flex;flex-direction:column;gap:.15rem}
+body .pf-cro-t{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.7)}
 body .pf-map iframe{width:100%;height:100%;border:0;display:block}
 body .pf-bottom{display:flex;flex-wrap:wrap;gap:.75rem 1.5rem;justify-content:space-between;align-items:center;max-width:1200px;margin:0 auto;padding:1.4rem 0;border-top:1px solid rgba(255,255,255,.1)}
 body .pf-bottom p{margin:0;font-size:.7rem;color:rgba(255,255,255,.88)}
