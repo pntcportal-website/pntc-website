@@ -53,8 +53,14 @@ const redirects = [
   '/maritime/*      /training/:splat  200',
   // the admin Images screen previews files by their folder names
   ...MAP.map(([from, to]) => `/site-files/${enc(from)}/*  /${to ? to + '/' : ''}:splat  200`),
+  // old WordPress addresses, moved to their new pages (tools/old-site-redirects.js)
+  ...require('./old-site-redirects').lines(),
 ];
-fs.writeFileSync(path.join(DIST, '_redirects'), redirects.join('\n') + '\n');
+// Cloudflare reads at most 100 rules with * or :placeholders, and counts every rule after the first one of those
+// against that limit, so exact addresses go first and the pattern rules last (each group keeps its order)
+const isPattern = l => !l.startsWith('#') && /[*:]/.test(l.trim().split(/\s+/)[0]);
+const ordered = [...redirects.filter(l => !isPattern(l)), ...redirects.filter(isPattern)];
+fs.writeFileSync(path.join(DIST, '_redirects'), ordered.join('\n') + '\n');
 // keep the admin pages and the API out of search engines
 fs.writeFileSync(path.join(DIST, '_headers'), '/admin/*\n  X-Robots-Tag: noindex\n');
 console.log(`dist ready: ${files} files, ${(bytes / 1048576).toFixed(1)} MB`);
