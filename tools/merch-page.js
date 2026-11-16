@@ -102,6 +102,9 @@ const CSS = `<style id="merch-modern">
 .mc-btn:hover{background:#1C1650;color:#F3CF33}
 .mx-none{margin:0;padding:2.4rem 1.5rem;border:1.5px dashed rgba(28,22,80,.18);border-radius:22px;background:#F7F6FB;text-align:center;font-size:.95rem;line-height:1.7;color:rgba(28,22,80,.75)}
 .mx-none[hidden]{display:none}
+.mx-preview{margin:0 0 1.2rem;padding:.9rem 1.1rem;border-radius:14px;background:#1C1650;color:#fff;font-size:.86rem;line-height:1.5}
+.mx-preview b{color:#F3CF33;margin-right:.5rem}
+.mc-preview{outline:3px solid #F3CF33;outline-offset:3px}
 /* quick view */
 .mq{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:clamp(.75rem,3vw,2rem);background:rgba(16,11,51,.72);backdrop-filter:blur(4px)}
 .mq[hidden]{display:none}
@@ -132,11 +135,26 @@ const CSS = `<style id="merch-modern">
 const JS = `<script id="merch-js">
 /* Merchandise: category filter, front, side and back views on each card, quick view, and the store email on every Inquire button */
 document.addEventListener('DOMContentLoaded',function(){
+  /* preview from the admin console: the item being edited is shown first, in this browser only */
+  if(/[?&]preview=1/.test(location.search)){try{var pv=JSON.parse(localStorage.getItem('pntc-merch-preview')||'null');if(pv&&pv.images&&pv.images.front)previewCard(pv);}catch(e){}}
   var cards=[].slice.call(document.querySelectorAll('#merchandise .mc')),chips=document.getElementById('mx-chips'),none=document.getElementById('mx-none');
   if(!chips)return;
   if(!cards.length){none.hidden=false;return;}
   var mail=document.getElementById('mx-email'),addr=mail?(mail.getAttribute('href')||'').replace(/^mailto:/,'').split('?')[0]:'';
   var NAMES={front:'Front',side:'Side',back:'Back'};
+  function previewCard(i){
+    function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+    var ks=['front','side','back'].filter(function(k){return i.images[k];}),v={};ks.forEach(function(k){v[k]=i.images[k];});
+    var back=i.images.back||i.images.side,N={front:'Front',side:'Side',back:'Back'};
+    var html='<article class="mc mc-preview" data-cat="'+e(i.category)+'" data-name="'+e(i.name)+'" data-price="'+e(i.price)+'" data-sizes="'+e(i.sizes)+'" data-note="'+e(i.note)+'" data-views="'+e(JSON.stringify(v))+'">'
+      +'<button class="mc-media" type="button"><img class="mc-main" src="'+e(i.images.front)+'" alt="">'+(back?'<img class="mc-alt" src="'+e(back)+'" alt="">':'')+(i.category?'<span class="mc-cat">'+e(i.category)+'</span>':'')+'</button>'
+      +(ks.length>1?'<div class="mc-views">'+ks.map(function(k,n){return '<button type="button" class="mc-view'+(n?'':' on')+'" data-view="'+k+'">'+N[k]+'</button>';}).join('')+'</div>':'')
+      +'<div class="mc-body"><h3 class="mc-name">'+e(i.name)+'</h3>'+(i.note?'<p class="mc-note">'+e(i.note)+'</p>':'')+(i.sizes?'<p class="mc-sizes">Sizes '+e(i.sizes)+'</p>':'')
+      +'<div class="mc-foot">'+(i.price?'<span class="mc-price">'+e(i.price)+'</span>':'<span></span>')+'<a class="mc-btn" href="#">Inquire</a></div></div></article>';
+    var grid=document.querySelector('#merchandise .mc-grid');grid.insertAdjacentHTML('afterbegin',html);
+    var note=document.createElement('p');note.className='mx-preview';note.innerHTML='<b>Preview</b> This is how the item will look on the page once it is saved and published. Only you can see it.';
+    grid.parentNode.insertBefore(note,document.getElementById('mx-chips'));
+  }
   function views(c){try{return JSON.parse(c.getAttribute('data-views')||'{}');}catch(e){return {};}}
   function mailto(c){return 'mailto:'+addr+'?subject='+encodeURIComponent('Merchandise inquiry, '+c.getAttribute('data-name'));}
   cards.forEach(function(c){

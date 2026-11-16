@@ -195,6 +195,7 @@ button, input, select, textarea { font-family: inherit; }
 }
 .btn:active { transform: scale(.97); }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn[hidden] { display: none; }
 
 .btn-primary   { background: var(--gold);  color: #111; }
 .btn-secondary { background: rgba(255,255,255,.08); color: var(--text); }

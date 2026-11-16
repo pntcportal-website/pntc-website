@@ -5,7 +5,7 @@
 (function () {
   var VIEWS = [['front', 'Front view', true], ['side', 'Side view', false], ['back', 'Back view', false]];
   var CATS = ['Apparel', 'Uniform', 'PE Uniform', 'Accessories', 'Bags', 'Academic'];
-  var state = { images: {}, files: {}, previews: {} };
+  var state = { images: {}, files: {}, previews: {}, dataUrls: {} };
   var esc = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
   var $ = function (id) { return document.getElementById(id); };
 
@@ -62,16 +62,17 @@
           var small = await shrink(f);
           state.files[v] = small;
           state.previews[v] = URL.createObjectURL(small);
+          state.dataUrls[v] = await new Promise(function (r) { var fr = new FileReader(); fr.onload = function () { r(fr.result); }; fr.readAsDataURL(small); });
           renderSlots();
         } catch (err) { alert('This photo could not be read. Please use a JPG, PNG or WebP photo.'); }
       };
       input.click();
     }
-    if (drop) { var d = drop.dataset.drop; delete state.files[d]; delete state.previews[d]; delete state.images[d]; renderSlots(); }
+    if (drop) { var d = drop.dataset.drop; delete state.files[d]; delete state.previews[d]; delete state.dataUrls[d]; delete state.images[d]; renderSlots(); }
   }
 
   window.merchFormHtml = function (item) {
-    state = { images: Object.assign({}, (item && item.images) || {}), files: {}, previews: {} };
+    state = { images: Object.assign({}, (item && item.images) || {}), files: {}, previews: {}, dataUrls: {} };
     var status = (item && item.status) || 'show';
     setTimeout(function () {
       document.querySelector('#modal .modal-box').classList.add('mf-wide');
@@ -114,6 +115,22 @@
       price: ($('f-price').value || '').trim(), sizes: ($('f-sizes').value || '').trim(),
       status: st ? st.value : 'show', images: state.images,
     };
+  };
+
+  // Preview: opens the Merchandise page with this item added as a card (from the editor, or a saved item)
+  window.merchPreview = function (saved) {
+    var it;
+    if (saved) it = { name: saved.name, category: saved.category, note: saved.note, price: saved.price, sizes: saved.sizes, images: saved.images || {} };
+    else {
+      var imgs = {};
+      VIEWS.forEach(function (v) { var k = v[0]; if (state.dataUrls[k]) imgs[k] = state.dataUrls[k]; else if (state.images[k]) imgs[k] = state.images[k]; });
+      it = { name: ($('f-name').value || '').trim(), category: ($('f-category').value || '').trim(), note: ($('f-note').value || '').trim(),
+        price: ($('f-price').value || '').trim(), sizes: ($('f-sizes').value || '').trim(), images: imgs };
+    }
+    if (!it.images || !it.images.front) { alert('Add the front photo to see a preview.'); return; }
+    try { localStorage.setItem('pntc-merch-preview', JSON.stringify(it)); }
+    catch (e) { alert('The photos are too large for a preview in this browser. Save the item, then use Preview in the list.'); return; }
+    window.open('/college/merchandise?preview=1#merchandise', '_blank');
   };
 
   // the row in the list: small photo, status and missing photo warning

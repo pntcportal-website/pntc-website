@@ -169,7 +169,7 @@
     <div class="modal-title" id="modal-title">Add Item</div>
     <div id="modal-form"></div>
     <div class="modal-footer">
-      <button class="btn" id="modal-preview-btn" onclick="previewCareer()" hidden style="margin-right:auto">Preview</button>
+      <button class="btn" id="modal-preview-btn" onclick="previewItem()" hidden style="margin-right:auto">Preview</button>
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" id="modal-save-btn" onclick="saveItem()">Save</button>
     </div>
@@ -257,7 +257,7 @@ function renderItemRow(type, item) {
       <div class="item-row-sub">${esc(sub)}</div>
     </div>
     <div class="item-row-actions">
-      ${type === 'careers' ? `<button class="btn" style="padding:.35rem .85rem;font-size:.78rem" onclick="previewCareer('${item.id}')">Preview</button>` : ''}
+      ${type === 'careers' || type === 'merchandise' ? `<button class="btn" style="padding:.35rem .85rem;font-size:.78rem" onclick="previewItem('${type}','${item.id}')">Preview</button>` : ''}
       <button class="btn" style="padding:.35rem .85rem;font-size:.78rem" onclick="openModal('${type}','${item.id}')">Edit</button>
       <button class="btn" style="padding:.35rem .85rem;font-size:.78rem;color:#f87171" onclick="deleteItem('${type}','${item.id}')">Delete</button>
     </div>
@@ -277,6 +277,8 @@ function openModal(type, id) {
   document.querySelector('#modal .modal-box').classList.remove('cf-wide', 'mf-wide');
   document.getElementById('modal-preview-btn').hidden = true;
   document.getElementById('modal-form').innerHTML = buildForm(type, existing);
+  // job openings and merchandise have a preview of the page
+  document.getElementById('modal-preview-btn').hidden = !['careers', 'merchandise'].includes(type);
   document.getElementById('modal').removeAttribute('hidden');
 }
 
@@ -348,6 +350,12 @@ function careerFromEditor() {
     badgeType:   document.getElementById('f-badge-type')?.value  || 'Full-Time',
     ...careersFormValue()
   };
+}
+
+// Preview from the editor (unsaved changes included), or of a saved item from the list
+function previewItem(type, id) {
+  if ((type || editType) === 'merchandise') return merchPreview(id ? data.merchandise.find(i => i.id === id) : null);
+  previewCareer(id);
 }
 
 // Preview: from the editor (unsaved changes included), or a saved opening from the list
