@@ -51,7 +51,7 @@ const SITES = {
       btns: [['college.cta.btn', 'Apply Now', '#enroll', null, true]] },
     tagline: 'PNTC Colleges Dasmariñas', desc: 'Private, non-sectarian maritime and business school in Dasmariñas, Cavite. CHED-recognized. MARINA-accredited. ISO 9001:2015 certified.',
     linksTitle: 'Programs', links: ['BS Marine Transportation', 'BS Marine Engineering', 'BS Tourism Management', 'BS Criminology', 'BS Customs Administration', 'BS Office Administration'].map(x => [x, '/college/programs']),
-    contact: { addr: 'Brgy Zone 3, Amuntay Rd, Dasmariñas, 4114 Cavite', phone: ['0917 159 4966', 'tel:+639171594966'], email: 'info@pntc.edu.ph', hours: 'Monday to Friday, 7:00 AM to 5:30 PM' },
+    contact: { addr: 'Brgy Zone 3, Amuntay Rd, Dasmariñas, 4114 Cavite', phone: ['0917 159 4966', 'tel:+639171594966'], email: 'admissions@mypntc.edu.ph', hours: 'Monday to Friday, 7:00 AM to 5:30 PM' },
     map: MAP_DASMA, copy: 'PNTC Colleges Dasmariñas, Inc.', badge: 'CHED Recognized &amp; MARINA Accredited', social: 'social',
   },
   shs: {

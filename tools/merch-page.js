@@ -29,7 +29,7 @@ const SECTION = `<section id="merchandise" class="mx">
         <h2 class="mx-h2">${slot('merch.title', 'Wear Your')} <span class="mx-mark">${slot('merch.mark', 'PNTC Pride')}</span></h2>
         <p class="mx-intro">${slot('merch.intro', 'Official PNTC merchandise for students, alumni and supporters. Tap any item to see it up close, then ask the Campus Store about sizes and availability.')}</p>
       </div>
-      <a class="mx-ask" id="mx-email" data-c="merch.email" href="mailto:info@pntc.edu.ph"><span>${slot('merch.ask', 'Questions about an item?')}</span><b>${slot('merch.email', 'info@pntc.edu.ph')}</b></a>
+      <a class="mx-ask" id="mx-email" data-c="merch.email" href="mailto:admissions@mypntc.edu.ph"><span>${slot('merch.ask', 'Questions about an item?')}</span><b>${slot('merch.email', 'admissions@mypntc.edu.ph')}</b></a>
     </div>
     <div class="mx-chips" id="mx-chips" role="group" aria-label="Filter by category" hidden></div>
     ${START}
@@ -52,7 +52,7 @@ const SECTION = `<section id="merchandise" class="mx">
       <p class="mq-price" id="mq-price"></p>
       <p class="mq-note" id="mq-note"></p>
       <p class="mq-sizes" id="mq-sizes"></p>
-      <a class="mq-btn" id="mq-btn" href="mailto:info@pntc.edu.ph">Inquire about this item</a>
+      <a class="mq-btn" id="mq-btn" href="mailto:admissions@mypntc.edu.ph">Inquire about this item</a>
     </div>
   </div>
 </div>`;

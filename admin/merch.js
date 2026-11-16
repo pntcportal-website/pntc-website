@@ -39,7 +39,7 @@ function card(i) {
     + (i.note ? `<p class="mc-note">${esc(i.note)}</p>` : '')
     + (i.sizes ? `<p class="mc-sizes">Sizes ${esc(i.sizes)}</p>` : '')
     + `<div class="mc-foot">${i.price ? `<span class="mc-price">${esc(i.price)}</span>` : '<span></span>'}`
-    + `<a class="mc-btn" href="mailto:info@pntc.edu.ph?subject=${encodeURIComponent('Merchandise inquiry, ' + (i.name || ''))}">Inquire</a></div></div>`
+    + `<a class="mc-btn" href="mailto:admissions@mypntc.edu.ph?subject=${encodeURIComponent('Merchandise inquiry, ' + (i.name || ''))}">Inquire</a></div></div>`
     + `</article>`;
 }
 
