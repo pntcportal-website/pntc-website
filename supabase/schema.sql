@@ -183,6 +183,36 @@ update chat_sessions set department = case when site in ('maritime', 'aman') the
 create index if not exists chat_sessions_dept_idx on chat_sessions (department, updated_at desc);
 
 
+-- ── Merchandise orders ──────────────────────────────────────────────────
+-- one row per order from the Merchandise page. The order number shown to buyers is M- followed by order_no.
+create table if not exists merch_orders (
+  id              uuid          primary key default gen_random_uuid(),
+  order_no        bigint        generated always as identity (start with 1001) unique,
+  created_at      timestamptz   not null default now(),
+  updated_at      timestamptz   not null default now(),
+  item_id         uuid,
+  item_name       text,
+  size            text,
+  quantity        int           not null default 1,
+  unit_price      numeric(10,2),
+  total           numeric(10,2),
+  buyer_type      text,          -- student or employee
+  name            text,
+  email           text,
+  phone           text,
+  id_number       text,          -- student number or employee ID
+  department      text,          -- course and year, or office
+  payment_method  text,          -- finance (pay at the Finance Office) or salary (salary deduction, employees only)
+  notes           text,          -- from the buyer
+  status          text          not null default 'placed',  -- placed, confirmed, ongoing, ready, completed, cancelled
+  staff_notes     text,          -- Finance and Purchasing only
+  history         jsonb         default '[]'::jsonb          -- each status change: status, time and who
+);
+create index if not exists merch_orders_created_idx on merch_orders (created_at desc);
+create index if not exists merch_orders_status_idx  on merch_orders (status, created_at desc);
+create index if not exists merch_orders_track_idx   on merch_orders (order_no, email);
+
+
 -- ── Security ────────────────────────────────────────────────────────────
 -- The website never talks to Supabase directly. Only the admin server does, with the service_role key,
 -- which bypasses these rules. Turning row level security on with no policies blocks everyone else.
@@ -197,6 +227,7 @@ alter table agent_status   enable row level security;
 alter table activity_log   enable row level security;
 alter table job_applications enable row level security;
 alter table chat_departments enable row level security;
+alter table merch_orders   enable row level security;
 
 -- ── Image storage bucket ────────────────────────────────────────────────
 -- Used only by the older Images (Supabase) screen in the admin console. Blog cover photos and article

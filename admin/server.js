@@ -149,7 +149,7 @@ app.use(express.json({ limit: '50mb' }));
 // server (with the service_role key) can change.
 // The super admin login always has full access and cannot be changed or removed from the Users screen.
 const SUPER_ADMIN = 'pntcportal@mypntc.edu.ph';
-const ALL_AREAS = ['posts', 'images', 'careers', 'research', 'directory', 'merchandise', 'content', 'calendar', 'courses', 'chat', 'users', 'history'];
+const ALL_AREAS = ['posts', 'images', 'careers', 'research', 'directory', 'merchandise', 'orders', 'content', 'calendar', 'courses', 'chat', 'users', 'history'];
 const ROLES = {
   executive: { label: 'Executive (Admin)', areas: '*' },
   marketing: { label: 'Marketing', areas: ALL_AREAS.filter(a => a !== 'users' && a !== 'history') },
@@ -157,6 +157,8 @@ const ROLES = {
   academic:  { label: 'Academic',  areas: ['calendar'] },             // the College and SHS academic calendars
   hr:        { label: 'HR',        areas: ['careers', 'content'] },   // Careers and Leadership (see HR_CONTENT)
   chat:      { label: 'Live Chat',  areas: ['chat'] },                // answering chats only (Training Center, Registrar, Finance ...)
+  finance:   { label: 'Finance',    areas: ['orders'] },              // merchandise orders: confirms payment or salary deduction
+  purchasing:{ label: 'Purchasing', areas: ['orders'] },              // merchandise orders: ongoing, ready for pickup, completed
 };
 // Site Content sections HR may edit: the Careers and Leadership pages. Marketing, IT and Executive may edit all.
 const HR_CONTENT = id => /career|leader/i.test(id);
@@ -173,12 +175,14 @@ function areaFor(p) {
   if (p === '/api/chat/agent-status' || p === '/api/chat/session') return null;                     // visitor chat box
   if (/^\/api\/chat\/session\/[^/]+\/(message|messages|status)$/.test(p)) return null;               // visitor chat box
   if (p === '/api/public/careers/apply') return null;                                                // job application form
+  if (p === '/api/public/merch/order' || p === '/api/public/merch/track') return null;                // merchandise orders
   if (p.startsWith('/api/chat/')) return 'chat';
   if (p.startsWith('/api/users')) return 'users';
   if (p.startsWith('/api/history')) return 'history';
   if (p.startsWith('/api/posts') || p.startsWith('/api/publish') || p === '/api/upload/featured') return 'posts';
   if (p.startsWith('/api/images')) return 'images';
   if (p.startsWith('/api/careers/')) return 'careers';                                                // job applications
+  if (p.startsWith('/api/orders')) return 'orders';                                                   // merchandise orders
   const land = /^\/api\/landing\/(careers|research|directory|merchandise)\b/.exec(p);
   if (land) return land[1];
   if (p === '/api/calendar' || p === '/api/shs-calendar') return 'calendar';
@@ -212,6 +216,7 @@ function describe(req, area, p, body) {
     if (m === 'DELETE') return 'Deleted a blog post';
   }
   if (area === 'images') return (/upload/.test(p) ? 'Uploaded image ' : 'Replaced image ') + q((req.file && req.file.originalname) || b.filename || p.split('/').pop());
+  if (area === 'orders') return `Changed merchandise order ${req.targetName || ''} to ${(MERCH.STATUS_NAME[b.status] || b.status || 'saved notes')}`;
   if (p.startsWith('/api/careers/applications')) {
     if (m === 'DELETE') return 'Deleted a job application' + (req.targetName ? ' from ' + req.targetName : '');
     return 'Updated a job application' + (req.targetName ? ' from ' + req.targetName : '') + (b.status ? ` (status: ${b.status})` : '');
@@ -248,7 +253,7 @@ async function logActivity(req, area, p, body) {
     });
   } catch (_) { /* the history must never block a save */ }
 }
-const LOGGED = new Set(['posts', 'images', 'careers', 'research', 'directory', 'merchandise', 'content', 'calendar', 'courses', 'users']);
+const LOGGED = new Set(['posts', 'images', 'careers', 'research', 'directory', 'merchandise', 'orders', 'content', 'calendar', 'courses', 'users']);
 
 // Every admin API request needs a login with the right access type
 app.use('/api', async (req, res, next) => {
@@ -954,6 +959,115 @@ app.post('/api/public/careers/apply', (req, res) => {
       res.status(500).json({ error: 'Your application could not be saved right now. Please try again in a few minutes.' });
     }
   });
+});
+
+// ══════════════════════════════════════════════════════════════
+//  Merchandise orders (College > Merchandise > Order)
+// ══════════════════════════════════════════════════════════════
+// Students pay at the Finance Office. Employees pay there or choose salary deduction.
+// Finance confirms the payment, then Purchasing orders from the supplier and moves the order to Ongoing,
+// Ready for pickup and Completed. Buyers follow their order with its number and email (Track your order).
+const ORDER_COLS = 'id,order_no,created_at,updated_at,item_id,item_name,size,quantity,unit_price,total,buyer_type,name,email,phone,id_number,department,payment_method,notes,status,staff_notes,history';
+const missingOrders = e => /merch_orders/.test(e.message) ? new Error('The orders table is missing. Run supabase/merchandise-orders.sql once in Supabase.') : e;
+
+app.post('/api/public/merch/order', async (req, res) => {
+  const b = req.body || {};
+  if (b.website) return res.json({ ok: true, orderNo: '' });          // filled only by spam robots
+  const ip = req.headers['cf-connecting-ip'] || req.ip || '';
+  if (tooMany(ip)) return res.status(429).json({ error: 'Too many orders from this connection. Please try again later.' });
+  try {
+    const { data: item, error } = await supabase.from('merchandise').select('id,name,price,sizes,status,images').eq('id', String(b.item || '')).maybeSingle();
+    if (error) throw error;
+    if (!item || !MERCH.isShown(item)) return res.status(404).json({ error: 'This item is no longer available.' });
+    const { order, error: bad } = MERCH.checkOrder(item, b);
+    if (bad) return res.status(400).json({ error: bad });
+    const now = new Date().toISOString();
+    const { data, error: insErr } = await supabase.from('merch_orders')
+      .insert({ ...order, status: 'placed', history: [{ status: 'placed', at: now, by: 'Buyer' }], created_at: now, updated_at: now })
+      .select('order_no').single();
+    if (insErr) throw insErr;
+    res.json({ ok: true, orderNo: MERCH.orderNo(data.order_no), total: MERCH.peso(order.total), payment: order.payment_method });
+  } catch (e) {
+    console.error('Merchandise order error:', e.message);
+    res.status(500).json({ error: 'Your order could not be saved right now. Please try again in a few minutes.' });
+  }
+});
+
+// the buyer's view of one order: needs the order number and the email used for it
+app.get('/api/public/merch/track', async (req, res) => {
+  const no = parseInt(String(req.query.no || '').replace(/\D/g, ''), 10);
+  const email = String(req.query.email || '').trim().toLowerCase();
+  if (!no || !email) return res.status(400).json({ error: 'Enter your order number and email.' });
+  try {
+    const { data, error } = await supabase.from('merch_orders').select('order_no,created_at,item_name,size,quantity,total,payment_method,status,history').eq('order_no', no).eq('email', email).maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'No order was found with that number and email.' });
+    res.json({ orderNo: MERCH.orderNo(data.order_no), item: data.item_name, size: data.size, quantity: data.quantity, total: MERCH.peso(Number(data.total)),
+      payment: MERCH.PAYMENTS[data.payment_method] || '', status: data.status, created: data.created_at,
+      steps: (data.history || []).map(h => ({ status: h.status, at: h.at })) });
+  } catch (e) { res.status(500).json({ error: 'The order could not be checked right now. Please try again later.' }); }
+});
+
+// ── Orders screen (Finance, Purchasing, and logins with Merchandise orders) ──
+app.get('/api/orders', async (req, res) => {
+  try {
+    let q = supabase.from('merch_orders').select('id,order_no,created_at,item_name,size,quantity,total,buyer_type,name,payment_method,status')
+      .order('created_at', { ascending: false }).limit(Math.min(parseInt(req.query.limit) || 50, 100));
+    if (req.query.before) q = q.lt('created_at', req.query.before);
+    if (req.query.status) q = q.eq('status', req.query.status);
+    if (req.query.buyer) q = q.eq('buyer_type', req.query.buyer);
+    if (req.query.payment) q = q.eq('payment_method', req.query.payment);
+    const term = String(req.query.q || '').trim();
+    if (term) {
+      const n = parseInt(term.replace(/\D/g, ''), 10);
+      q = /^m?-?\d+$/i.test(term) && n ? q.eq('order_no', n) : q.ilike('name', '%' + term.replace(/[%_,()]/g, '') + '%');
+    }
+    const { data, error } = await q;
+    if (error) throw missingOrders(error);
+    res.json({ rows: data || [], statuses: MERCH.STATUS, role: req.role });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// how many orders are in each status (the numbers on the status tabs)
+app.get('/api/orders/counts', async (_req, res) => {
+  try {
+    const { data, error } = await supabase.from('merch_orders').select('status').limit(20000);
+    if (error) throw error;
+    const counts = {};
+    for (const r of data || []) counts[r.status] = (counts[r.status] || 0) + 1;
+    res.json(counts);
+  } catch (_) { res.json({}); }
+});
+
+app.get('/api/orders/:id', async (req, res) => {
+  const { data, error } = await supabase.from('merch_orders').select(ORDER_COLS).eq('id', req.params.id).maybeSingle();
+  if (error) return res.status(500).json({ error: missingOrders(error).message });
+  if (!data) return res.status(404).json({ error: 'Order not found.' });
+  res.json({ ...data, role: req.role });
+});
+
+// moves an order along (each access type only to the statuses it handles) and keeps the staff notes
+app.put('/api/orders/:id', async (req, res) => {
+  const { status, staff_notes } = req.body || {};
+  try {
+    const { data: o, error } = await supabase.from('merch_orders').select('id,order_no,name,status,history').eq('id', req.params.id).maybeSingle();
+    if (error) throw error;
+    if (!o) return res.status(404).json({ error: 'Order not found.' });
+    req.targetName = MERCH.orderNo(o.order_no) + ' (' + o.name + ')';
+    const now = new Date().toISOString();
+    const upd = { updated_at: now };
+    if (staff_notes !== undefined) upd.staff_notes = String(staff_notes).slice(0, 2000);
+    if (status !== undefined && status !== o.status) {
+      if (!MERCH.canMove(req.role, o.status, status))
+        return res.status(403).json({ error: `Your access type cannot move an order from ${MERCH.STATUS_NAME[o.status]} to ${MERCH.STATUS_NAME[status] || status}.` });
+      const who = (req.user.user_metadata && req.user.user_metadata.name) || req.user.email;
+      upd.status = status;
+      upd.history = [...(o.history || []), { status, at: now, by: who }];
+    }
+    const { error: uErr } = await supabase.from('merch_orders').update(upd).eq('id', o.id);
+    if (uErr) throw uErr;
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Applications screen (Careers access) ─────────────────────────

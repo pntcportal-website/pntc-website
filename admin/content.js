@@ -185,6 +185,9 @@ const GROUPS = [
     T('merch.eyebrow', 'Small label'), T('merch.title', 'Heading, first words'), T('merch.mark', 'Heading, highlighted words'), P('merch.intro', 'Introduction'),
     T('merch.ask', 'Store box, small line'), { key: 'merch.email', label: 'Campus Store email (also used by every Inquire button)', type: 'email' },
     T('merch.none', 'Message when no item is published'),
+    P('merch.pay.finance', 'Order form, how to pay at the Finance Office'), P('merch.pay.salary', 'Order form, salary deduction (employees)'),
+    P('merch.done', 'Message after an order is placed'),
+    T('merch.track.title', 'Track your order, heading'), P('merch.track.intro', 'Track your order, text'),
   ] },
   { id: 'college-hero', site: 'Colleges', title: 'College hero', files: ['PNTC Colleges/index.html'], fields: [
     T('college.hero.pill', 'Small tag above the headline'),

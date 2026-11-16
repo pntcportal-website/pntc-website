@@ -89,8 +89,8 @@
       + '<div class="form-group"><label class="form-label">Item name</label><input class="form-input" id="f-name" value="' + esc(item && item.name) + '" placeholder="e.g. PNTC Classic Polo Shirt"></div>'
       + '<div class="form-group"><label class="form-label">Category</label><input class="form-input" id="f-category" list="mf-cats" value="' + esc(item && item.category) + '" placeholder="e.g. Apparel"><datalist id="mf-cats">' + CATS.map(function (c) { return '<option value="' + c + '">'; }).join('') + '</datalist></div>'
       + '<div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="f-note" rows="3" placeholder="Material, colors, what makes it special">' + esc(item && item.note) + '</textarea></div>'
-      + '<div class="form-group"><label class="form-label">Price</label><input class="form-input" id="f-price" value="' + esc(item && item.price) + '" placeholder="e.g. ₱ 450"></div>'
-      + '<div class="form-group"><label class="form-label">Sizes <span style="opacity:.6">(optional)</span></label><input class="form-input" id="f-sizes" value="' + esc(item && item.sizes) + '" placeholder="e.g. XS to 3XL"></div>';
+      + '<div class="form-group"><label class="form-label">Price <span style="opacity:.6">(numbers only, the peso sign is added on the website)</span></label><input class="form-input" id="f-price" value="' + esc(item && item.price) + '" placeholder="e.g. 450" inputmode="decimal"></div>'
+      + '<div class="form-group"><label class="form-label">Sizes <span style="opacity:.6">(optional, separate them with commas. Buyers choose one when ordering)</span></label><input class="form-input" id="f-sizes" value="' + esc(item && item.sizes) + '" placeholder="e.g. XS, S, M, L, XL, 2XL"></div>';
   };
 
   // uploads new photos (one save, one upload) and returns the item to save

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PNTC Admin – Merchandise Orders</title>
+<link rel="stylesheet" href="admin.css">
+<script src="access.js"></script>
+<style>
+.o-tabs { display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:1rem; }
+.o-tab { font-size:.78rem; font-weight:600; padding:.45rem .9rem; border-radius:99px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; }
+.o-tab.on { background:var(--gold); color:#111; border-color:var(--gold); }
+.o-tab b { margin-left:.35rem; font-weight:800; }
+.o-filters { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+.o-filters select, .o-filters input { padding:.42rem .6rem; font-size:.8rem; min-width:150px; }
+.o-pill { display:inline-block; padding:.18rem .6rem; border-radius:99px; font-size:.68rem; font-weight:700; letter-spacing:.04em; white-space:nowrap; }
+.o-pill.placed { background:rgba(200,150,12,.2); color:var(--gold-lt); }
+.o-pill.confirmed { background:rgba(30,95,232,.2); color:var(--blue-lt); }
+.o-pill.ongoing { background:rgba(168,85,247,.18); color:#c084fc; }
+.o-pill.ready { background:rgba(22,163,74,.2); color:#4ade80; }
+.o-pill.completed { background:rgba(122,139,168,.2); color:var(--text); }
+.o-pill.cancelled { background:rgba(248,113,113,.15); color:#f87171; }
+.o-pay { font-size:.72rem; color:var(--muted); }
+.o-pay.salary { color:#fbbf24; }
+.data-table tbody tr { cursor:pointer; }
+.data-table tbody tr:hover td { background:rgba(255,255,255,.03); }
+.o-more { margin-top:1rem; text-align:center; }
+#o-more[hidden] { display:none; }
+.o-msg { margin-top:.75rem; font-size:.82rem; color:#f87171; }
+.o-note { font-size:.8rem; color:var(--muted); line-height:1.6; margin:0 0 1rem; }
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:500; display:flex; align-items:center; justify-content:center; padding:1.5rem; }
+.modal-overlay[hidden] { display:none; }
+.modal-box { background:var(--card); border:1px solid var(--border); border-radius:10px; width:100%; max-width:720px; max-height:90vh; overflow-y:auto; padding:1.5rem; }
+.d-head { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; margin-bottom:1rem; }
+.d-head h2 { margin:0; font-size:1.15rem; }
+.d-head p { margin:.25rem 0 0; font-size:.8rem; color:var(--muted); }
+.d-grid { display:grid; grid-template-columns:1fr 1fr; gap:.2rem 1.5rem; }
+.d-q { padding:.6rem 0; border-top:1px solid var(--border); }
+.d-q b { display:block; font-size:.72rem; color:var(--muted); font-weight:600; margin-bottom:.2rem; }
+.d-q div { font-size:.88rem; line-height:1.5; word-break:break-word; white-space:pre-wrap; }
+.d-total { font-size:1.2rem; font-weight:800; }
+.d-steps { list-style:none; margin:.4rem 0 0; padding:0; display:grid; gap:.35rem; }
+.d-steps li { font-size:.8rem; color:var(--muted); }
+.d-steps li b { color:var(--text); font-weight:700; }
+.d-actions { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border); align-items:center; }
+.d-actions .btn.go { background:var(--gold); color:#111; border-color:var(--gold); font-weight:700; }
+.d-actions .hint { font-size:.75rem; color:var(--muted); flex-basis:100%; }
+@media (max-width:640px){ .d-grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <img src="/site-files/SHS/PNTC White Horizontal.png" alt="PNTC" onerror="this.style.display='none'">
+    <div class="sidebar-brand-sub">Admin Console</div>
+  </div>
+  <div class="sidebar-section-label">Navigation</div>
+  <nav class="sidebar-nav">
+    <a class="nav-item" href="index.html"><span class="nav-icon">🏠</span> Dashboard</a>
+    <a class="nav-item" href="posts.html"><span class="nav-icon">📝</span> Posts &amp; Blog</a>
+    <a class="nav-item" href="images.html"><span class="nav-icon">🖼️</span> Image Manager</a>
+    <a class="nav-item" href="landing.html"><span class="nav-icon">🏛️</span> Landing Page</a>
+    <a class="nav-item" href="content.html"><span class="nav-icon">✏️</span> Site Content</a>
+    <a class="nav-item" href="chat.html"><span class="nav-icon">💬</span> Live Chat</a>
+  </nav>
+  <div class="sidebar-bottom">
+    <strong>PNTC Admin</strong>
+    <button onclick="logout()" style="margin-top:.6rem;width:100%;padding:.45rem;background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.25);border-radius:5px;font-size:.75rem;font-weight:700;cursor:pointer;letter-spacing:.06em;text-transform:uppercase">Logout</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title">Merchandise Orders</span>
+    <span class="topbar-sub">Orders from the Merchandise page, newest first</span>
+  </div>
+
+  <div class="page-content">
+    <p class="o-note" id="o-note"></p>
+    <div class="o-tabs" id="o-tabs"></div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Orders</span>
+        <div class="o-filters">
+          <input class="form-input" id="o-q" placeholder="Order number or name">
+          <select class="form-select" id="o-buyer"><option value="">Students and employees</option><option value="student">Students</option><option value="employee">Employees</option></select>
+          <select class="form-select" id="o-payment"><option value="">All payments</option><option value="finance">Pay at Finance</option><option value="salary">Salary deduction</option></select>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr><th>Order</th><th>Buyer</th><th>Item</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody id="o-rows"><tr><td colspan="5" class="td-muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="o-msg" id="o-msg"></div>
+      <div class="o-more"><button class="btn btn-ghost btn-sm" id="o-more" hidden>Load older orders</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="d-modal" hidden>
+  <div class="modal-box" id="d-box"></div>
+</div>
+
+<script>
+const NAMES = { placed: 'Order placed', confirmed: 'Order confirmed', ongoing: 'Ongoing', ready: 'Ready for pickup', completed: 'Completed', cancelled: 'Cancelled' };
+const PAY = { finance: 'Pay at Finance', salary: 'Salary deduction' };
+// the next steps each access type may take (the server checks the same rules)
+const MOVES = {
+  finance: { placed: [['confirmed', 'Confirm payment'], ['cancelled', 'Cancel order']], confirmed: [['placed', 'Undo confirmation'], ['cancelled', 'Cancel order']] },
+  purchasing: { confirmed: [['ongoing', 'Ordered from supplier (Ongoing)']], ongoing: [['ready', 'Ready for pickup'], ['confirmed', 'Back to Order confirmed']], ready: [['completed', 'Picked up (Completed)'], ['ongoing', 'Back to Ongoing']], completed: [['ready', 'Back to Ready for pickup']] },
+};
+const ALL_STEPS = ['placed', 'confirmed', 'ongoing', 'ready', 'completed', 'cancelled'];
+const NOTES = {
+  finance: 'You confirm orders once the buyer has paid at the Finance Office, or once the salary deduction is arranged for employees. Purchasing takes confirmed orders from there.',
+  purchasing: 'Confirmed orders are paid. Order them from the supplier, then move each order to Ongoing, Ready for pickup and Completed. Buyers see each change on the Merchandise page.',
+};
+const PAGE = 50;
+let rows = [], role = '', tab = '', counts = {}, started = false;
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const peso = n => '₱ ' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 });
+const when = d => new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+const pill = s => `<span class="o-pill ${s}">${esc(NAMES[s] || s)}</span>`;
+const moves = (r, from) => MOVES[r] ? (MOVES[r][from] || []) : ALL_STEPS.filter(s => s !== from).map(s => [s, NAMES[s]]);
+
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Something went wrong (' + r.status + ').');
+  return d;
+}
+
+// status tabs with how many orders each has; Finance starts on placed orders, Purchasing on confirmed ones
+async function loadCounts() {
+  try { counts = await api('/api/orders/counts'); } catch (_) { counts = {}; }
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  $('o-tabs').innerHTML = `<button class="o-tab${tab ? '' : ' on'}" data-s="">All<b>${total}</b></button>` + ALL_STEPS.map(s => `<button class="o-tab${tab === s ? ' on' : ''}" data-s="${s}">${NAMES[s]}<b>${counts[s] || 0}</b></button>`).join('');
+}
+$('o-tabs').addEventListener('click', e => { const b = e.target.closest('.o-tab'); if (!b) return; tab = b.dataset.s; loadCounts(); load(false); });
+
+async function load(older) {
+  $('o-msg').textContent = '';
+  const q = new URLSearchParams({ limit: PAGE });
+  if (tab) q.set('status', tab);
+  if ($('o-buyer').value) q.set('buyer', $('o-buyer').value);
+  if ($('o-payment').value) q.set('payment', $('o-payment').value);
+  if ($('o-q').value.trim()) q.set('q', $('o-q').value.trim());
+  if (older && rows.length) q.set('before', rows[rows.length - 1].created_at);
+  try {
+    const d = await api('/api/orders?' + q);
+    role = d.role;
+    rows = older ? rows.concat(d.rows) : d.rows;
+    $('o-more').hidden = d.rows.length < PAGE;
+    render();
+  } catch (e) { $('o-msg').textContent = e.message; if (!older) $('o-rows').innerHTML = ''; }
+}
+
+function render() {
+  $('o-rows').innerHTML = rows.map(r => `<tr data-id="${r.id}">
+    <td class="td-title">M-${r.order_no}<br><span class="td-muted">${when(r.created_at)}</span></td>
+    <td>${esc(r.name)}<br><span class="o-pay">${r.buyer_type === 'employee' ? 'Employee' : 'Student'}</span></td>
+    <td>${esc(r.item_name)}${r.size ? ', ' + esc(r.size) : ''} &times; ${r.quantity}</td>
+    <td><b>${peso(r.total)}</b><br><span class="o-pay ${r.payment_method}">${PAY[r.payment_method] || ''}</span></td>
+    <td>${pill(r.status)}</td></tr>`).join('') || '<tr><td colspan="5" class="td-muted">No orders here.</td></tr>';
+}
+$('o-rows').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openOrder(tr.dataset.id); });
+
+async function openOrder(id) {
+  $('d-box').innerHTML = '<p class="td-muted">Loading…</p>'; $('d-modal').hidden = false;
+  try {
+    const o = await api('/api/orders/' + id);
+    const next = moves(o.role, o.status);
+    const emp = o.buyer_type === 'employee';
+    $('d-box').innerHTML = `<div class="d-head"><div><h2>Order M-${o.order_no} ${pill(o.status)}</h2><p>Placed ${when(o.created_at)}</p></div><button class="btn btn-ghost btn-sm" onclick="closeOrder()">Close</button></div>
+      <div class="d-grid">
+        <div class="d-q"><b>Item</b><div>${esc(o.item_name)}${o.size ? ', size ' + esc(o.size) : ''}</div></div>
+        <div class="d-q"><b>Quantity and price</b><div>${o.quantity} &times; ${peso(o.unit_price)}</div></div>
+        <div class="d-q"><b>Total</b><div class="d-total">${peso(o.total)}</div></div>
+        <div class="d-q"><b>Payment</b><div>${PAY[o.payment_method] || ''}</div></div>
+        <div class="d-q"><b>Buyer</b><div>${esc(o.name)} (${emp ? 'Employee' : 'Student'})</div></div>
+        <div class="d-q"><b>${emp ? 'Employee ID' : 'Student number'}</b><div>${esc(o.id_number)}</div></div>
+        <div class="d-q"><b>${emp ? 'Office or department' : 'Course and year'}</b><div>${esc(o.department) || '<span class="td-muted">Not given</span>'}</div></div>
+        <div class="d-q"><b>Contact</b><div><a href="mailto:${esc(o.email)}">${esc(o.email)}</a><br><a href="tel:${esc(o.phone)}">${esc(o.phone)}</a></div></div>
+      </div>
+      ${o.notes ? `<div class="d-q"><b>Notes from the buyer</b><div>${esc(o.notes)}</div></div>` : ''}
+      <div class="d-q"><b>History</b><ul class="d-steps">${(o.history || []).map(h => `<li><b>${esc(NAMES[h.status] || h.status)}</b> · ${when(h.at)}${h.by ? ' · ' + esc(h.by) : ''}</li>`).join('')}</ul></div>
+      <div class="d-q"><b>Staff notes (only visible here)</b><textarea class="form-input" id="d-notes" rows="2">${esc(o.staff_notes || '')}</textarea></div>
+      <div class="d-actions">
+        ${next.map(([s, label]) => `<button class="btn btn-sm${s === 'cancelled' ? ' btn-danger' : ' go'}" data-move="${s}">${esc(label)}</button>`).join('')}
+        <button class="btn btn-ghost btn-sm" id="d-save">Save notes</button>
+        <span class="td-muted" id="d-ok"></span>
+        ${!next.length ? `<span class="hint">${o.role === 'finance' ? 'This order is with Purchasing now.' : o.role === 'purchasing' ? 'This order waits for Finance to confirm the payment.' : ''}</span>` : ''}
+      </div>`;
+    $('d-box').querySelectorAll('[data-move]').forEach(b => b.onclick = async () => {
+      const to = b.dataset.move;
+      if (to === 'cancelled' && !confirm(`Cancel order M-${o.order_no}? The buyer will see it as cancelled.`)) return;
+      try {
+        await api('/api/orders/' + o.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: to, staff_notes: $('d-notes').value }) });
+        const r = rows.find(x => x.id === o.id); if (r) r.status = to;
+        render(); loadCounts(); openOrder(o.id);
+      } catch (e) { $('d-ok').textContent = e.message; }
+    });
+    $('d-save').onclick = async () => {
+      try { await api('/api/orders/' + o.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ staff_notes: $('d-notes').value }) }); $('d-ok').textContent = 'Saved.'; }
+      catch (e) { $('d-ok').textContent = e.message; }
+    };
+  } catch (e) { $('d-box').innerHTML = `<p class="o-msg">${esc(e.message)}</p><button class="btn btn-sm" onclick="closeOrder()">Close</button>`; }
+}
+function closeOrder() { $('d-modal').hidden = true; }
+$('d-modal').addEventListener('click', e => { if (e.target.id === 'd-modal') closeOrder(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('d-modal').hidden) closeOrder(); });
+
+let typing;
+$('o-q').addEventListener('input', () => { clearTimeout(typing); typing = setTimeout(() => load(false), 400); });
+$('o-buyer').onchange = $('o-payment').onchange = () => load(false);
+$('o-more').onclick = () => load(true);
+
+function start() {
+  if (started) return; started = true;
+  const me = window.PNTC_ME || {};
+  tab = me.role === 'finance' ? 'placed' : me.role === 'purchasing' ? 'confirmed' : '';
+  $('o-note').textContent = NOTES[me.role] || 'Finance confirms the payment of each order. Purchasing then moves it to Ongoing, Ready for pickup and Completed. Buyers follow every change on the Merchandise page.';
+  loadCounts(); load(false);
+}
+document.addEventListener('pntc-access', start);
+if (window.PNTC_ME) start();
+
+async function logout() { await fetch('/api/auth/logout', { method: 'POST' }); location.href = '/admin/login.html'; }
+</script>
+</body>
+</html>
