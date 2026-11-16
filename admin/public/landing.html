@@ -498,10 +498,14 @@ async function saveItem() {
 
 // ── Delete item ────────────────────────────────────────────────
 async function deleteItem(type, id) {
-  if (!confirm('Delete this item?')) return;
-  await fetch(`/api/landing/${type}/${id}`, { method:'DELETE' });
+  if (!confirm('Delete this item? It is also removed from the website (live in 2 to 4 minutes).')) return;
+  const r = await fetch(`/api/landing/${type}/${id}`, { method:'DELETE' });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { alert('Not deleted: ' + (d.error || r.status)); return; }
   data[type] = data[type].filter(i => i.id !== id);
   renderList(type);
+  if (d._publishError) alert(d._publishError + ' Click Publish to Landing Page to try again.');
+  else { const el = document.getElementById(type + '-pub-status'); if (el) el.textContent = 'Published · ' + new Date().toLocaleString(); }
 }
 
 // ── Publish ────────────────────────────────────────────────────

@@ -67,7 +67,8 @@ async function ghDeleteFile(filePath, sha) {
   return res.json();
 }
 
-// Several files in one commit (Git Data API). Each file: { path, buffer }.
+// Several files in one commit (Git Data API). Each file: { path, buffer } (binary), { path, text } (a page)
+// or { path, delete: true } (removes the file).
 async function ghCommitFiles(files, message) {
   const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}`;
   const H = { 'Authorization': `Bearer ${GH_TOKEN}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' };
@@ -80,7 +81,9 @@ async function ghCommitFiles(files, message) {
   const base = await call(`${api}/git/commits/${ref.object.sha}`, 'GET');
   const tree = [];
   for (const fl of files) {
-    const blob = await call(`${api}/git/blobs`, 'POST', { content: fl.buffer.toString('base64'), encoding: 'base64' });
+    if (fl.delete) { tree.push({ path: fl.path, mode: '100644', type: 'blob', sha: null }); continue; }
+    const buf = fl.buffer || Buffer.from(String(fl.text), 'utf8');
+    const blob = await call(`${api}/git/blobs`, 'POST', { content: buf.toString('base64'), encoding: 'base64' });
     tree.push({ path: fl.path, mode: '100644', type: 'blob', sha: blob.sha });
   }
   const t = await call(`${api}/git/trees`, 'POST', { base_tree: base.tree.sha, tree });
@@ -434,6 +437,23 @@ async function publishPostToGitHub(post) {
   return results;
 }
 
+// Takes a post off the given sites: removes its page and rebuilds each site's blog list without it,
+// in one commit. Called after the database already shows the post as gone, a draft, or off those sites.
+async function removePostFromSites(slug, siteIds) {
+  const changes = [];
+  for (const siteId of siteIds || []) {
+    const site = SITES[siteId];
+    if (!site || !slug) continue;
+    const page = `${site.dir}/blog/${slug}.html`;
+    if (await ghGetFile(page)) changes.push({ path: page, delete: true });
+    const { data: sitePosts } = await supabase.from('posts').select('*').contains('sites', [siteId]).eq('status', 'published').order('publishedAt', { ascending: false });
+    const mapped = (sitePosts || []).map(p => ({ ...p, featuredImage: resolveImageForSite(p.featuredImage, site) }));
+    changes.push({ path: `${site.dir}/blog/index.html`, text: buildBlogIndex(mapped, site) });
+  }
+  if (changes.length) await ghCommitFiles(changes, `Remove blog post: ${slug}`);
+  await updateSitemapSafely();
+}
+
 app.post('/api/posts', async (req, res) => {
   try {
     const now    = new Date().toISOString();
@@ -493,6 +513,14 @@ app.put('/api/posts/:id', async (req, res) => {
       .from('posts').update(updated).eq('id', current.id).select().single();
     if (error) throw error;
 
+    // a published post that became a draft, changed its address or left a site comes off those pages
+    const wasLive = current.status === 'published';
+    const nowLive = updated.status === 'published';
+    const leftSites = !wasLive ? [] : !nowLive || current.slug !== data.slug ? (current.sites || []) : (current.sites || []).filter(x => !(data.sites || []).includes(x));
+    if (leftSites.length) {
+      try { await removePostFromSites(current.slug, leftSites); }
+      catch (rmErr) { console.error('Remove post error:', rmErr); if (!nowLive) return res.json({ ...data, _publishError: rmErr.message }); }
+    }
     if (updated.status === 'published' && (updated.sites || []).length) {
       try {
         const published = await publishPostToGitHub(data);
@@ -502,16 +530,20 @@ app.put('/api/posts/:id', async (req, res) => {
         return res.json({ ...data, _publishError: pubErr.message });
       }
     }
-    if (current.status === 'published') await updateSitemapSafely();
     res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/posts/:id', async (req, res) => {
   try {
+    const { data: post } = await supabase.from('posts').select('slug,sites,status').eq('id', req.params.id).maybeSingle();
     const { error } = await supabase.from('posts').delete().eq('id', req.params.id);
     if (error) throw error;
-    await updateSitemapSafely();
+    // a published post also leaves the websites (its page and its place in each blog list)
+    if (post && post.status === 'published') {
+      try { await removePostFromSites(post.slug, post.sites); }
+      catch (e) { return res.json({ ok: true, _publishError: 'Deleted, but the website could not be updated: ' + e.message }); }
+    }
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -856,43 +888,54 @@ app.delete('/api/landing/:type/:id', async (req, res) => {
   const { type, id } = req.params;
   if (!LANDING_TABLE_MAP[type]) return res.status(404).json({ error: 'Unknown type' });
   try {
+    const { data: item } = await supabase.from(LANDING_TABLE_MAP[type]).select('*').eq('id', id).maybeSingle();
     const { error } = await supabase.from(LANDING_TABLE_MAP[type]).delete().eq('id', id);
     if (error) throw error;
-    res.json({ ok: true });
+    // the website follows at once, so a deleted item never stays on the page
+    const extra = [];
+    if (type === 'merchandise' && item && item.images) {
+      for (const p of Object.values(item.images)) {
+        const m = /^\/college\/merch\/([\w.\-]+)$/.exec(String(p));
+        if (m && await ghGetFile('PNTC Colleges/merch/' + m[1])) extra.push({ path: 'PNTC Colleges/merch/' + m[1], delete: true });
+      }
+    }
+    try { await publishLanding(type, extra, `Remove from ${type}: ${(item && (item.title || item.name)) || id}`); }
+    catch (e) { return res.json({ ok: true, _publishError: 'Deleted, but the website could not be updated: ' + e.message }); }
+    res.json({ ok: true, published: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// Writes a landing section (Careers, Research, Directory, Merchandise) onto its pages from the database,
+// all pages in one commit, plus any extra changes (such as photos of a deleted item).
+async function publishLanding(type, extra = [], message) {
+  const { data: items, error } = await supabase.from(LANDING_TABLE_MAP[type]).select('*').order('createdAt', { ascending: true });
+  if (error) throw error;
+  const cfg = LANDING_MARKERS[type];
+  const block = buildLandingBlock(type, items || []);
+  const changes = [], files = [];
+  for (const landingPath of LANDING_TARGETS[type]) {
+    const existing = await ghGetFile(landingPath);
+    if (!existing) throw new Error(`Page not found in repo: ${landingPath}`);
+    let html = Buffer.from(existing.content, 'base64').toString('utf8');
+    const si = html.indexOf(cfg.start), ei = html.indexOf(cfg.end);
+    if (si === -1 || ei === -1) throw new Error(`Markers not found in ${landingPath}`);
+    html = html.slice(0, si) + cfg.start + '\n' + block + '\n    ' + cfg.end + html.slice(ei + cfg.end.length);
+    changes.push({ path: landingPath, text: html });
+    files.push(landingPath);
+  }
+  if (type === 'careers') {
+    changes.push({ path: 'PNTC Main Landing Page/careers-jobs.json', text: CAREERS.jobsData(items || []) });
+    files.push('PNTC Main Landing Page/careers-jobs.json');
+  }
+  await ghCommitFiles([...changes, ...extra], message || `Update ${type}`);
+  return { items: items || [], files };
+}
 
 app.post('/api/landing/:type/publish', async (req, res) => {
   const { type } = req.params;
   if (!LANDING_TABLE_MAP[type]) return res.status(404).json({ error: 'Unknown type' });
   try {
-    const { data: items, error } = await supabase
-      .from(LANDING_TABLE_MAP[type]).select('*')
-      .order('createdAt', { ascending: true });
-    if (error) throw error;
-
-    const cfg   = LANDING_MARKERS[type];
-    const block = buildLandingBlock(type, items || []);
-    const files = [];
-    for (const landingPath of LANDING_TARGETS[type]) {
-      const existing = await ghGetFile(landingPath);
-      if (!existing) return res.status(404).json({ error: `Page not found in repo: ${landingPath}` });
-
-      let html = Buffer.from(existing.content, 'base64').toString('utf8');
-      const si = html.indexOf(cfg.start);
-      const ei = html.indexOf(cfg.end);
-      if (si === -1 || ei === -1) return res.status(500).json({ error: `Markers not found in ${landingPath}` });
-
-      html = html.slice(0, si) + cfg.start + '\n' + block + '\n    ' + cfg.end + html.slice(ei + cfg.end.length);
-      await ghPutFile(landingPath, html, `Update ${type}`, existing.sha);
-      files.push(landingPath);
-    }
-    if (type === 'careers') {
-      const DATA = 'PNTC Main Landing Page/careers-jobs.json';
-      const existing = await ghGetFile(DATA);
-      await ghPutFile(DATA, CAREERS.jobsData(items || []), 'Update careers application forms', existing && existing.sha);
-      files.push(DATA);
-    }
+    const { items, files } = await publishLanding(type);
     res.json({ ok: true, type, count: type === 'careers' ? (items || []).filter(CAREERS.isOpen).length : type === 'merchandise' ? (items || []).filter(MERCH.isShown).length : (items || []).length, files });
   } catch (e) {
     res.status(500).json({ error: e.message });

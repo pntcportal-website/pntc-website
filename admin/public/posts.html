@@ -67,7 +67,7 @@
 <div class="modal-overlay" id="del-modal" hidden>
   <div class="modal">
     <h3>Delete Post?</h3>
-    <p>This will permanently remove the post from the admin. Already-published HTML files on the sites will not be deleted automatically.</p>
+    <p>This permanently removes the post from the admin and from every website it was published on (its page and its place in the blog list). The websites update in 2 to 4 minutes.</p>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="document.getElementById('del-modal').hidden=true">Cancel</button>
       <button class="btn btn-danger" id="del-confirm">Delete</button>
@@ -175,10 +175,13 @@ function confirmDelete(id) {
 
 document.getElementById('del-confirm').onclick = async () => {
   if (!pendingDelete) return;
-  await fetch(`/api/posts/${pendingDelete}`, { method: 'DELETE' });
+  const r = await fetch(`/api/posts/${pendingDelete}`, { method: 'DELETE' });
+  const d = await r.json().catch(() => ({}));
   document.getElementById('del-modal').hidden = true;
   pendingDelete = null;
-  showToast('Post deleted');
+  if (!r.ok) { alert('Not deleted: ' + (d.error || r.status)); return; }
+  if (d._publishError) alert(d._publishError);
+  else showToast('Post deleted. It leaves the website in 2 to 4 minutes.');
   await load();
 };
 
