@@ -181,6 +181,11 @@ const GROUPS = [
     ...[1, 2, 3, 4].flatMap(n => [T('obt.card' + n + '.title', 'Card ' + n + ', title'), P('obt.card' + n + '.text', 'Card ' + n + ', text')]),
     T('obt.vessel.eyebrow', 'Vessel, small label'), T('obt.vessel.title', 'Vessel, heading start'), T('obt.vessel.mark', 'Vessel, highlighted name'), P('obt.vessel.text', 'Vessel, text'), T('obt.vessel.btn', 'Vessel, button'),
   ] },
+  { id: 'college-merch', site: 'Colleges', title: 'Merchandise page: heading and store email', note: 'The items themselves, with their front, side and back photos, are managed in Landing Page, under Merchandise.', files: ['PNTC Colleges/merchandise.html'], fields: [
+    T('merch.eyebrow', 'Small label'), T('merch.title', 'Heading, first words'), T('merch.mark', 'Heading, highlighted words'), P('merch.intro', 'Introduction'),
+    T('merch.ask', 'Store box, small line'), { key: 'merch.email', label: 'Campus Store email (also used by every Inquire button)', type: 'email' },
+    T('merch.none', 'Message when no item is published'),
+  ] },
   { id: 'college-hero', site: 'Colleges', title: 'College hero', files: ['PNTC Colleges/index.html'], fields: [
     T('college.hero.pill', 'Small tag above the headline'),
     T('college.hero.mark', 'Headline, highlighted word'), T('college.hero.line1', 'Headline, rest of line 1'), T('college.hero.line2', 'Headline, line 2'),

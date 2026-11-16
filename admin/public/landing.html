@@ -6,6 +6,7 @@
 <title>PNTC Admin – Landing Page</title>
 <link rel="stylesheet" href="admin.css">
 <script src="careers-form-builder.js"></script>
+<script src="merch-form.js"></script>
 <style>
 .lp-tabs { display:flex; gap:.5rem; margin-bottom:1.5rem; flex-wrap:wrap; }
 .lp-tab {
@@ -245,13 +246,14 @@ function renderItemRow(type, item) {
       sub   = item.description || '';
       break;
     case 'merchandise':
-      title = `${item.icon||'🛍️'} ${item.name||''}`;
-      sub   = `${item.category||''} · ${item.price||''}`;
+      title = item.name || '';
+      sub   = [item.category, item.price, item.sizes ? 'Sizes ' + item.sizes : ''].filter(Boolean).join(' · ');
       break;
   }
-  return `<div class="item-row">
+  const mx = type === 'merchandise' ? merchRowExtras(item) : null;
+  return `<div class="item-row">${mx ? mx.thumb : ''}
     <div class="item-row-body">
-      <div class="item-row-title">${esc(title)}${type === 'careers' ? careersRowExtras(item, appCounts) : ''}</div>
+      <div class="item-row-title">${esc(title)}${type === 'careers' ? careersRowExtras(item, appCounts) : ''}${mx ? mx.pill : ''}</div>
       <div class="item-row-sub">${esc(sub)}</div>
     </div>
     <div class="item-row-actions">
@@ -272,7 +274,7 @@ function openModal(type, id) {
   editId   = id || null;
   const existing = id ? data[type].find(i => i.id === id) : null;
   document.getElementById('modal-title').textContent = (id ? 'Edit' : 'Add') + ' — ' + typeLabel(type);
-  document.querySelector('#modal .modal-box').classList.remove('cf-wide');
+  document.querySelector('#modal .modal-box').classList.remove('cf-wide', 'mf-wide');
   document.getElementById('modal-preview-btn').hidden = true;
   document.getElementById('modal-form').innerHTML = buildForm(type, existing);
   document.getElementById('modal').removeAttribute('hidden');
@@ -292,7 +294,7 @@ function buildForm(type, item) {
     case 'research': return formResearch(item);
     case 'careers':  return formCareers(item);
     case 'directory':return formDirectory(item);
-    case 'merchandise': return formMerchandise(item);
+    case 'merchandise': return merchFormHtml(item);
   }
   return '';
 }
@@ -460,16 +462,14 @@ async function saveItem() {
       };
       break;
     }
-    case 'merchandise':
-      body = {
-        icon:     document.getElementById('f-icon')?.value     || '',
-        name:     document.getElementById('f-name')?.value     || '',
-        category: document.getElementById('f-category')?.value || '',
-        note:     document.getElementById('f-note')?.value     || '',
-        price:    document.getElementById('f-price')?.value    || '',
-        imgClass: document.getElementById('f-img-class')?.value|| 'mi-navy'
-      };
+    case 'merchandise': {
+      const btn = document.getElementById('modal-save-btn');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try { body = await merchFormValue(); }
+      catch (e) { alert(e.message); btn.disabled = false; btn.textContent = 'Save'; return; }
+      btn.disabled = false; btn.textContent = 'Save';
       break;
+    }
   }
 
   const url    = editId ? `/api/landing/${type}/${editId}` : `/api/landing/${type}`;

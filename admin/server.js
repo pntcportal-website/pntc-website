@@ -2,6 +2,7 @@
 const express = require('express');
 const multer  = require('multer');
 const CAREERS = require('./careers');
+const MERCH = require('./merch');
 const path    = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { createClient } = require('@supabase/supabase-js');
@@ -64,6 +65,27 @@ async function ghDeleteFile(filePath, sha) {
     throw new Error(`GitHub DELETE ${res.status}: ${err}`);
   }
   return res.json();
+}
+
+// Several files in one commit (Git Data API). Each file: { path, buffer }.
+async function ghCommitFiles(files, message) {
+  const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}`;
+  const H = { 'Authorization': `Bearer ${GH_TOKEN}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' };
+  const call = async (url, method, body) => {
+    const r = await fetch(url, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
+    if (!r.ok) throw new Error(`GitHub ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    return r.json();
+  };
+  const ref = await call(`${api}/git/ref/heads/${GH_BRANCH}`, 'GET');
+  const base = await call(`${api}/git/commits/${ref.object.sha}`, 'GET');
+  const tree = [];
+  for (const fl of files) {
+    const blob = await call(`${api}/git/blobs`, 'POST', { content: fl.buffer.toString('base64'), encoding: 'base64' });
+    tree.push({ path: fl.path, mode: '100644', type: 'blob', sha: blob.sha });
+  }
+  const t = await call(`${api}/git/trees`, 'POST', { base_tree: base.tree.sha, tree });
+  const c = await call(`${api}/git/commits`, 'POST', { message, tree: t.sha, parents: [ref.object.sha] });
+  await call(`${api}/git/refs/heads/${GH_BRANCH}`, 'PATCH', { sha: c.sha });
 }
 
 async function ghPutFile(filePath, content, message, sha) {
@@ -197,6 +219,7 @@ function describe(req, area, p, body) {
   if (LANDING_NAMES[area]) {
     const what = LANDING_NAMES[area];
     if (/\/publish$/.test(p)) return `Published the ${what} list to the website`;
+    if (/\/photos$/.test(p)) return `Uploaded ${what} photos for ` + q(b.name);
     if (m === 'POST') return `Added to ${what}: ` + q(b.title || b.name);
     if (m === 'PUT') return `Edited in ${what}: ` + q(b.title || b.name);
     if (m === 'DELETE') return `Removed an item from ${what}`;
@@ -753,6 +776,34 @@ const LANDING_TARGETS = {
   merchandise: ['PNTC Colleges/merchandise.html']
 };
 
+// Merchandise model photos (front, side, back) go into the website (PNTC Colleges/merch/) in one commit,
+// so Cloudflare serves them for free. The admin makes them small (WebP, at most 1400 px) before sending.
+app.post('/api/landing/merchandise/photos', (req, res) => {
+  const up = multer({ storage: multer.memoryStorage(), limits: { fileSize: 4 * 1024 * 1024, files: 3 } })
+    .fields(MERCH.VIEWS.map(([name]) => ({ name, maxCount: 1 })));
+  up(req, res, async err => {
+    if (err) return res.status(400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'Each photo must be 4 MB or smaller.' : err.message });
+    const slug = String((req.body && req.body.name) || 'item').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'item';
+    const stamp = Date.now().toString(36);
+    const files = [], paths = {};
+    for (const [view] of MERCH.VIEWS) {
+      const fl = ((req.files || {})[view] || [])[0];
+      if (!fl) continue;
+      let ext = path.extname(fl.originalname || '').toLowerCase();
+      if (ext === '.jpeg') ext = '.jpg';
+      if (!/^\.(webp|jpg|png)$/.test(ext)) return res.status(400).json({ error: 'Use a WebP, JPG or PNG photo.' });
+      const name = `${slug}-${view}-${stamp}${ext}`;
+      files.push({ path: `PNTC Colleges/merch/${name}`, buffer: fl.buffer });
+      paths[view] = `/college/merch/${name}`;
+    }
+    if (!files.length) return res.status(400).json({ error: 'No photo received.' });
+    try {
+      await ghCommitFiles(files, `Merchandise photos: ${slug}`);
+      res.json({ ok: true, images: paths });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+});
+
 app.get('/api/landing/:type', async (req, res) => {
   const { type } = req.params;
   if (!LANDING_TABLE_MAP[type]) return res.status(404).json({ error: 'Unknown type' });
@@ -777,7 +828,7 @@ app.post('/api/landing/:type', async (req, res) => {
   if (!LANDING_TABLE_MAP[type]) return res.status(404).json({ error: 'Unknown type' });
   try {
     const now  = new Date().toISOString();
-    const item = { id: uuidv4(), ...(type === 'careers' ? careerFields(req.body) : req.body), createdAt: now, updatedAt: now };
+    const item = { id: uuidv4(), ...(type === 'careers' ? careerFields(req.body) : type === 'merchandise' ? MERCH.clean(req.body) : req.body), createdAt: now, updatedAt: now };
     const { data, error } = await supabase.from(LANDING_TABLE_MAP[type]).insert(item).select().single();
     if (error) throw error;
     res.json(data);
@@ -788,7 +839,7 @@ app.put('/api/landing/:type/:id', async (req, res) => {
   const { type, id } = req.params;
   if (!LANDING_TABLE_MAP[type]) return res.status(404).json({ error: 'Unknown type' });
   try {
-    const updated = { ...(type === 'careers' ? careerFields(req.body) : req.body), id, updatedAt: new Date().toISOString() };
+    const updated = { ...(type === 'careers' ? careerFields(req.body) : type === 'merchandise' ? MERCH.clean(req.body) : req.body), id, updatedAt: new Date().toISOString() };
     const { data, error } = await supabase
       .from(LANDING_TABLE_MAP[type]).update(updated).eq('id', id).select().single();
     if (error) throw error;
@@ -837,7 +888,7 @@ app.post('/api/landing/:type/publish', async (req, res) => {
       await ghPutFile(DATA, CAREERS.jobsData(items || []), 'Update careers application forms', existing && existing.sha);
       files.push(DATA);
     }
-    res.json({ ok: true, type, count: type === 'careers' ? (items || []).filter(CAREERS.isOpen).length : (items || []).length, files });
+    res.json({ ok: true, type, count: type === 'careers' ? (items || []).filter(CAREERS.isOpen).length : type === 'merchandise' ? (items || []).filter(MERCH.isShown).length : (items || []).length, files });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1755,7 +1806,7 @@ function buildDirectoryBlock(items){
   return`    <div class="dir-grid">${items.map(i=>`<div class="dir-card reveal"><div class="dir-ico">${escHtml(i.icon||'📋')}</div><div class="dir-name">${escHtml(i.name)}</div><p class="dir-desc">${escHtml(i.description)}</p><div class="dir-contacts">${(i.contacts||[]).map(dirContact).join('')}</div></div>`).join('')}</div>`;
 }
 function buildMerchandiseBlock(items){
-  return`    <div class="merch-grid">${items.map(i=>`<div class="merch-card reveal"><div class="merch-img ${escHtml(i.imgClass||'mi-navy')}">${escHtml(i.icon||'🛍️')}</div><div class="merch-body"><div class="merch-cat">${escHtml(i.category)}</div><div class="merch-name">${escHtml(i.name)}</div><p class="merch-note">${escHtml(i.note)}</p><div class="merch-price">${escHtml(i.price)}</div><button class="merch-btn" onclick="location.href='mailto:info@pntc.edu.ph?subject=Merchandise - ${encodeURIComponent(i.name||'')}'">Inquire</button></div></div>`).join('')}</div>`;
+  return MERCH.build(items);
 }
 
 // ── Site Content and Academic Calendar (texts on the pages, edited in the admin) ──

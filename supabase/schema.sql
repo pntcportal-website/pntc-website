@@ -70,6 +70,9 @@ create table if not exists merchandise (
   price         text        default '',
   icon          text        default '🛍️',
   "imgClass"    text        default 'mi-navy',
+  images        jsonb       default '{}'::jsonb, -- model photos: front, side, back (/college/merch/...)
+  sizes         text        default '',
+  status        text        default 'show',     -- show or hidden
   "createdAt"   timestamptz default now(),
   "updatedAt"   timestamptz default now()
 );
@@ -140,6 +143,10 @@ create table if not exists job_applications (
 );
 create index if not exists job_applications_created_idx on job_applications (created_at desc);
 create index if not exists job_applications_career_idx  on job_applications (career_id, created_at desc);
+-- older projects: merchandise photos, sizes and status
+alter table merchandise add column if not exists images jsonb default '{}'::jsonb;
+alter table merchandise add column if not exists sizes  text  default '';
+alter table merchandise add column if not exists status text  default 'show';
 -- older projects: add the opening status and form columns
 alter table careers add column if not exists status text default 'open';
 alter table careers add column if not exists form   jsonb;
