@@ -152,13 +152,14 @@ app.use(express.json({ limit: '50mb' }));
 // server (with the service_role key) can change.
 // The super admin login always has full access and cannot be changed or removed from the Users screen.
 const SUPER_ADMIN = 'pntcportal@mypntc.edu.ph';
-const ALL_AREAS = ['posts', 'images', 'careers', 'research', 'directory', 'merchandise', 'orders', 'content', 'calendar', 'courses', 'chat', 'users', 'history'];
+const ALL_AREAS = ['posts', 'images', 'careers', 'applications', 'research', 'directory', 'merchandise', 'orders', 'content', 'calendar', 'courses', 'chat', 'users', 'history'];
 const ROLES = {
   executive: { label: 'Executive (Admin)', areas: '*' },
-  marketing: { label: 'Marketing', areas: ALL_AREAS.filter(a => a !== 'users' && a !== 'history') },
-  it:        { label: 'IT',        areas: ALL_AREAS.filter(a => a !== 'users' && a !== 'history') },
+  // job applications hold applicants' personal details, so only Executive (Admin) and HR see them
+  marketing: { label: 'Marketing', areas: ALL_AREAS.filter(a => !['users', 'history', 'applications'].includes(a)) },
+  it:        { label: 'IT',        areas: ALL_AREAS.filter(a => !['users', 'history', 'applications'].includes(a)) },
   academic:  { label: 'Academic',  areas: ['calendar'] },             // the College and SHS academic calendars
-  hr:        { label: 'HR',        areas: ['careers', 'content'] },   // Careers and Leadership (see HR_CONTENT)
+  hr:        { label: 'HR',        areas: ['careers', 'applications', 'content'] },   // Careers, job applications, Leadership (see HR_CONTENT)
   chat:      { label: 'Live Chat',  areas: ['chat'] },                // answering chats only (Training Center, Registrar, Finance ...)
   finance:   { label: 'Finance',    areas: ['orders'] },              // merchandise orders: confirms payment or salary deduction
   purchasing:{ label: 'Purchasing', areas: ['orders'] },              // merchandise orders: ongoing, ready for pickup, completed
@@ -184,7 +185,7 @@ function areaFor(p) {
   if (p.startsWith('/api/history')) return 'history';
   if (p.startsWith('/api/posts') || p.startsWith('/api/publish') || p === '/api/upload/featured') return 'posts';
   if (p.startsWith('/api/images')) return 'images';
-  if (p.startsWith('/api/careers/')) return 'careers';                                                // job applications
+  if (p.startsWith('/api/careers/')) return 'applications';                                           // job applications
   if (p.startsWith('/api/orders')) return 'orders';                                                   // merchandise orders
   const land = /^\/api\/landing\/(careers|research|directory|merchandise)\b/.exec(p);
   if (land) return land[1];
@@ -256,7 +257,7 @@ async function logActivity(req, area, p, body) {
     });
   } catch (_) { /* the history must never block a save */ }
 }
-const LOGGED = new Set(['posts', 'images', 'careers', 'research', 'directory', 'merchandise', 'orders', 'content', 'calendar', 'courses', 'users']);
+const LOGGED = new Set(['posts', 'images', 'careers', 'applications', 'research', 'directory', 'merchandise', 'orders', 'content', 'calendar', 'courses', 'users']);
 
 // Every admin API request needs a login with the right access type
 app.use('/api', async (req, res, next) => {

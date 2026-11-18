@@ -6,7 +6,7 @@
   var PAGES = {
     'index.html': ['posts'], 'posts.html': ['posts'], 'editor.html': ['posts'], 'images.html': ['images'],
     'landing.html': ['careers', 'research', 'directory', 'merchandise'], 'content.html': ['content', 'calendar', 'courses'],
-    'chat.html': ['chat'], 'users.html': ['users'], 'history.html': ['history'], 'applications.html': ['careers'], 'orders.html': ['orders'],
+    'chat.html': ['chat'], 'users.html': ['users'], 'history.html': ['history'], 'applications.html': ['applications'], 'orders.html': ['orders'],
   };
   var ORDER = ['index.html', 'posts.html', 'content.html', 'landing.html', 'images.html', 'chat.html', 'orders.html', 'applications.html', 'users.html', 'history.html'];
   var page = (location.pathname.split('/').pop() || 'index.html').replace(/^$/, 'index.html');
@@ -57,7 +57,7 @@
 
     // Merchandise Orders, Applications, Users and History screens in the menu
     var nav = document.querySelector('.sidebar-nav');
-    [['orders', 'orders.html', '🧾', 'Merchandise Orders'], ['careers', 'applications.html', '📨', 'Applications'], ['users', 'users.html', '👥', 'Users'], ['history', 'history.html', '🕘', 'History']].forEach(function (s) {
+    [['orders', 'orders.html', '🧾', 'Merchandise Orders'], ['applications', 'applications.html', '📨', 'Applications'], ['users', 'users.html', '👥', 'Users'], ['history', 'history.html', '🕘', 'History']].forEach(function (s) {
       if (!has(s[0]) || !nav || nav.querySelector('a[href="' + s[1] + '"]')) return;
       var link = document.createElement('a');
       link.className = 'nav-item' + (page === s[1] ? ' active' : '');

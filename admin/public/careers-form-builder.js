@@ -170,6 +170,8 @@
   window.careersRowExtras = function (item, counts) {
     var st = item.status || 'open', c = (counts || {})[item.id];
     var apps = c ? c.total + (c.total === 1 ? ' application' : ' applications') + (c.new ? ', ' + c.new + ' new' : '') : 'No applications yet';
+    var me = window.PNTC_ME || {};
+    if (me.areas && me.areas.indexOf('applications') < 0) return '<span class="cf-pill ' + st + '">' + st + '</span>';
     return '<span class="cf-pill ' + st + '">' + st + '</span><a class="cf-apps" href="applications.html?job=' + encodeURIComponent(item.id) + '">' + apps + '</a>';
   };
 })();
