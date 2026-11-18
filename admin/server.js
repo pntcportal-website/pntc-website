@@ -1983,5 +1983,5 @@ if (require.main === module) {
 } else {
   module.exports = app;
   // for tools/rebuild-blog-lists.js
-  app.blogTools = { SITES, buildBlogIndex, resolveImageForSite };
+  app.blogTools = { SITES, buildBlogIndex, resolveImageForSite, buildSHSNewsBlock };
 }

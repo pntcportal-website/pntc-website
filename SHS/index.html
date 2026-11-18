@@ -1462,24 +1462,27 @@ body .pf-badge svg{width:13px;height:13px;fill:none;stroke:var(--pf-gold);stroke
   </div>
 
   <!-- PNTC_NEWS_START -->
-  <div class="events-grid" style="margin-bottom:1rem">
-    <div class="events-row">
-      <a href="blog/enrollment-now-open-for-s-y-2026-2027.html" class="ev-card" style="text-decoration:none;color:inherit;cursor:pointer">
-        <div class="ev-thumb-wrap" style="background:linear-gradient(135deg,#181D71,#0d1245)"></div>
-        <div class="ev-body-wrap">
-          <div class="ev-date">Sep 9, 2026</div>
-          <div class="ev-title">Enrollment Now Open for S.Y. 2026-2027</div>
-          <div class="ev-text">PNTC is now accepting enrollees for the new school year. Slots are limited, so we encourage you to enroll early.</div>
-          <span class="ev-tag">Announcement</span>
-        </div>
-      </a>
-    </div>
-  </div>
-  <div style="text-align:right;padding:0 0 16px">
-    <a href="blog/index.html" style="font-size:13px;font-weight:700;color:#181D71;letter-spacing:.06em;text-transform:uppercase">See all posts →</a>
-  </div>
+  <div class="events-grid" style="margin-bottom:1rem"><div class="events-row"><a href="blog/the-crowns-have-been-claimed-celebrating-excellence-at-mr-ms-pntc-2026.html" class="ev-card" style="text-decoration:none;color:inherit;cursor:pointer"><div class="ev-thumb-wrap"><img src="/shs/blog/images/1794381495051-eicb.jpg" alt="The Crowns Have Been Claimed: Celebrating Excellence at Mr. &amp; Ms. PNTC 2026" style="width:100%;height:100%;object-fit:cover"></div><div class="ev-body-wrap"><div class="ev-date">Nov 11, 2026</div><div class="ev-title">The Crowns Have Been Claimed: Celebrating Excellence at Mr. &amp; Ms. PNTC 2026</div><div class="ev-text">PNTC Colleges officially crowned the new Mr. &amp; Ms. PNTC 2026 after a showcase of beauty, talent, and intelligence. Beyond the titles, the newly crowned winners begin a legacy of campus leadership and inspiration, supported by an enthusiastic community of students, faculty, and organizers.</div><span class="ev-tag">Events</span></div></a></div></div>
+  <div style="text-align:right;padding:0 0 16px"><a href="blog/index.html" style="font-size:13px;font-weight:700;color:#181D71;letter-spacing:.06em;text-transform:uppercase">See all posts →</a></div>
   <!-- PNTC_NEWS_END -->
 </section>
+<script id="shs-news-js">
+/* Events: the latest posts published to the SHS site, loaded live (the cards above are only the version saved in the page) */
+(function(){
+  var sec=document.getElementById('events-section');if(!sec||!window.fetch)return;
+  function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  fetch('/api/public/posts?site=shs&limit=3').then(function(r){return r.json();}).then(function(posts){
+    if(!Array.isArray(posts))return;
+    var grid=sec.querySelector('.events-grid');if(!grid)return;
+    if(!posts.length){grid.innerHTML='';return;}
+    grid.innerHTML='<div class="events-row">'+posts.map(function(p){
+      var d=new Date(p.publishedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'Asia/Manila'});
+      var th=p.featuredImage?'<div class="ev-thumb-wrap"><img src="'+e(p.featuredImage)+'" alt="'+e(p.title)+'" loading="lazy" style="width:100%;height:100%;object-fit:cover"></div>':'<div class="ev-thumb-wrap" style="background:linear-gradient(135deg,#181D71,#0d1245)"></div>';
+      return '<a href="blog/'+encodeURIComponent(p.slug)+'.html" class="ev-card" style="text-decoration:none;color:inherit;cursor:pointer">'+th+'<div class="ev-body-wrap"><div class="ev-date">'+e(d)+'</div><div class="ev-title">'+e(p.title)+'</div><div class="ev-text">'+e(p.excerpt||'')+'</div>'+(p.category?'<span class="ev-tag">'+e(p.category)+'</span>':'')+'</div></a>';
+    }).join('')+'</div>';
+  }).catch(function(){});
+})();
+</script>
 
 <!-- ADMISSION PROCESS -->
 <!-- ACCREDITATIONS -->
