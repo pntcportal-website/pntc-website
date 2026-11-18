@@ -404,6 +404,15 @@ async function updateSitemapSafely() {
   try { await updateSitemap(); } catch (e) { console.error('Sitemap update failed:', e.message); }
 }
 
+// The published posts of one site, newest first, for its blog list page.
+// sites is a JSON list, so it is matched as JSON (a plain array query fails and used to give an empty blog list).
+async function publishedPostsFor(siteId) {
+  const { data, error } = await supabase.from('posts').select('*')
+    .filter('sites', 'cs', JSON.stringify([siteId])).eq('status', 'published').order('publishedAt', { ascending: false });
+  if (error) throw new Error('Could not read the posts for the blog list: ' + error.message);
+  return data || [];
+}
+
 async function publishPostToGitHub(post) {
   const results = [];
   for (const siteId of (post.sites || [])) {
@@ -416,11 +425,7 @@ async function publishPostToGitHub(post) {
     const existPost    = await ghGetFile(postFilePath);
     await ghPutFile(postFilePath, postHtml, `Publish: ${post.title}`, existPost?.sha);
 
-    const { data: sitePosts } = await supabase
-      .from('posts').select('*')
-      .contains('sites', [siteId])
-      .eq('status', 'published')
-      .order('publishedAt', { ascending: false });
+    const sitePosts = await publishedPostsFor(siteId);
 
     const sitePostsMapped = (sitePosts || []).map(p => ({
       ...p, featuredImage: resolveImageForSite(p.featuredImage, site)
@@ -446,7 +451,7 @@ async function removePostFromSites(slug, siteIds) {
     if (!site || !slug) continue;
     const page = `${site.dir}/blog/${slug}.html`;
     if (await ghGetFile(page)) changes.push({ path: page, delete: true });
-    const { data: sitePosts } = await supabase.from('posts').select('*').contains('sites', [siteId]).eq('status', 'published').order('publishedAt', { ascending: false });
+    const sitePosts = await publishedPostsFor(siteId);
     const mapped = (sitePosts || []).map(p => ({ ...p, featuredImage: resolveImageForSite(p.featuredImage, site) }));
     changes.push({ path: `${site.dir}/blog/index.html`, text: buildBlogIndex(mapped, site) });
   }
@@ -1977,4 +1982,6 @@ if (require.main === module) {
   });
 } else {
   module.exports = app;
+  // for tools/rebuild-blog-lists.js
+  app.blogTools = { SITES, buildBlogIndex, resolveImageForSite };
 }
