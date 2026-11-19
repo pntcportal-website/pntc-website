@@ -52,57 +52,6 @@
    }
   },
   {
-   "id": "7e400e35-458c-428c-a8af-acd7b0403aec",
-   "title": "ONBOARD TRAINING STAFF",
-   "department": "ONBOARD TRAINING OFFICE",
-   "location": "Dasmariñas, Cavite",
-   "badgeType": "Full-Time",
-   "description": "-Graduate of any 4 -year related course\n-MS Applications Literate\n-Willing to work in Dasmariñas City, Cavite",
-   "form": {
-    "intro": "Please fill in the form below. Fields marked with a star are required.",
-    "success": "Thank you for applying. Our HR office will review your application and contact you if you are shortlisted.",
-    "fields": [
-     {
-      "id": "name",
-      "type": "short",
-      "label": "Full name",
-      "required": true
-     },
-     {
-      "id": "email",
-      "type": "email",
-      "label": "Email address",
-      "required": true
-     },
-     {
-      "id": "phone",
-      "type": "phone",
-      "label": "Mobile number",
-      "required": true
-     },
-     {
-      "id": "address",
-      "type": "short",
-      "label": "Current address",
-      "required": false
-     },
-     {
-      "id": "resume",
-      "type": "file",
-      "label": "Résumé or CV",
-      "required": true,
-      "help": "PDF, Word or image file, up to 5 MB."
-     },
-     {
-      "id": "letter",
-      "type": "paragraph",
-      "label": "Cover letter or short introduction",
-      "required": false
-     }
-    ]
-   }
-  },
-  {
    "id": "df53a38a-c05e-4551-8a14-dc145d666f76",
    "title": "LABORATORY CUSTODIAN",
    "department": "SITE FACILITY OFFICE",
@@ -148,6 +97,75 @@
       "id": "letter",
       "type": "paragraph",
       "label": "Cover letter or short introduction",
+      "required": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "f93b126f-6199-4e4b-a3da-19368012266c",
+   "title": "Marine Engineering Instructor",
+   "department": "Senior High School Department",
+   "location": "Dasmariñas, Cavite",
+   "badgeType": "Full-Time",
+   "description": "Qualifications:\n- Graduate of Bachelor of Science in Marine Engineering\n- With IMO 6.09 and IMO 3.12, IMO 6.10 is an advantage\n- OIC / Holder of COC ETO Officer / BS Electrical Engineer with License\n- For OIC-EW: At least 12-months sea-going experience\n- A Master's Degree is an advantage but not required\n- Willing to work at Dasmariñas City, Cavite",
+   "form": {
+    "intro": "Please fill in the form below. Fields marked with a star are required.",
+    "success": "Thank you for applying. Our HR office will review your application and contact you if you are shortlisted.",
+    "fields": [
+     {
+      "id": "name",
+      "type": "short",
+      "label": "Full name",
+      "required": true
+     },
+     {
+      "id": "email",
+      "type": "email",
+      "label": "Email address",
+      "required": true
+     },
+     {
+      "id": "phone",
+      "type": "phone",
+      "label": "Mobile number",
+      "required": true
+     },
+     {
+      "id": "address",
+      "type": "short",
+      "label": "Current address",
+      "required": false
+     },
+     {
+      "id": "resume",
+      "type": "file",
+      "label": "Résumé or CV",
+      "required": true,
+      "help": "PDF, Word or image file, up to 5 MB."
+     },
+     {
+      "id": "letter",
+      "type": "paragraph",
+      "label": "Cover letter or short introduction",
+      "required": false
+     },
+     {
+      "id": "qmwlw6kcu893",
+      "type": "file",
+      "label": "IMO Model 6.09 Training Certificate",
+      "required": true
+     },
+     {
+      "id": "qmwlw723x482",
+      "type": "file",
+      "label": "IMO Model 3.12 Training Certificate",
+      "required": true
+     },
+     {
+      "id": "qmwlw7fp952",
+      "type": "short",
+      "label": "Certificate of Sea Service",
       "required": false
      }
     ]
