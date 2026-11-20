@@ -170,6 +170,108 @@
      }
     ]
    }
+  },
+  {
+   "id": "a3524abc-0a6b-45b5-8c11-af9e103a6181",
+   "title": "PART-TIME FACULTY (ACCOUNTING)",
+   "department": "College of Business Management",
+   "location": "Dasmariñas, Cavite",
+   "badgeType": "Part-Time",
+   "description": "Qualifications:\n\n- Graduate of Bachelor's Degree in Accountancy or any Accounting-related field\n- Master's Degree in Accounting\n- Certified Public Accountant\n- With 3 years of teaching experience\n- Willing to work in Dasmariñas, Cavite",
+   "form": {
+    "intro": "Please fill in the form below. Fields marked with a star are required.",
+    "success": "Thank you for applying. Our HR office will review your application and contact you if you are shortlisted.",
+    "fields": [
+     {
+      "id": "name",
+      "type": "short",
+      "label": "Full name",
+      "required": true
+     },
+     {
+      "id": "email",
+      "type": "email",
+      "label": "Email address",
+      "required": true
+     },
+     {
+      "id": "phone",
+      "type": "phone",
+      "label": "Mobile number",
+      "required": true
+     },
+     {
+      "id": "address",
+      "type": "short",
+      "label": "Current address",
+      "required": false
+     },
+     {
+      "id": "resume",
+      "type": "file",
+      "label": "Résumé or CV",
+      "required": true,
+      "help": "PDF, Word or image file, up to 5 MB."
+     },
+     {
+      "id": "letter",
+      "type": "paragraph",
+      "label": "Cover letter or short introduction",
+      "required": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "0af83b7f-ed7d-4c01-8a66-99de9ae7ecad",
+   "title": "FULL-TIME CUSTOMS ADMINISTRATION INSTRUCTOR",
+   "department": "College of Business Management",
+   "location": "Dasmariñas, Cavite",
+   "badgeType": "Full-Time",
+   "description": "Qualifications:\n\n- Graduate of Bachelor's Degree in Customs Administration\n- Master's Degree in Customs Administration\n- Licensed Customs Broker\n- With 3 years of teaching experience\n- Willing to work in Dasmariñas, Cavite",
+   "form": {
+    "intro": "Please fill in the form below. Fields marked with a star are required.",
+    "success": "Thank you for applying. Our HR office will review your application and contact you if you are shortlisted.",
+    "fields": [
+     {
+      "id": "name",
+      "type": "short",
+      "label": "Full name",
+      "required": true
+     },
+     {
+      "id": "email",
+      "type": "email",
+      "label": "Email address",
+      "required": true
+     },
+     {
+      "id": "phone",
+      "type": "phone",
+      "label": "Mobile number",
+      "required": true
+     },
+     {
+      "id": "address",
+      "type": "short",
+      "label": "Current address",
+      "required": false
+     },
+     {
+      "id": "resume",
+      "type": "file",
+      "label": "Résumé or CV",
+      "required": true,
+      "help": "PDF, Word or image file, up to 5 MB."
+     },
+     {
+      "id": "letter",
+      "type": "paragraph",
+      "label": "Cover letter or short introduction",
+      "required": false
+     }
+    ]
+   }
   }
  ]
 }
