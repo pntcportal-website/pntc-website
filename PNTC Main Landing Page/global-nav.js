@@ -1,6 +1,13 @@
 /* Google Analytics 4 (property PNTC Colleges, G-M9K7LJ9YMT) on every public page. The admin console does not load
    this file, so staff work is not counted. Previews from the admin and local copies are left out too.
-   Key actions are sent as events with window.pntcTrack(name, details). */
+   Sessions, page views, engagement time, outbound clicks and downloads come from Google (Enhanced measurement).
+   Added here, on every page:
+     cta_click     every call to action button (Apply, Enroll, Inquire, Order, View ...)
+     nav_click     menu and footer links          card_click   news, program and network cards
+     scroll_depth  25, 50, 75 and 100 percent of the page
+     apply_click, enroll_open, call_click, email_click, chat_open   the actions that matter most
+   Each click event carries cta_text, cta_section, link_url and page_path. Forms send their own events
+   (chat_start, job_application, merch_order) through window.pntcTrack(name, details). */
 (function () {
   var ID = 'G-M9K7LJ9YMT';
   var host = location.hostname;
@@ -15,17 +22,65 @@
   window.gtag = function () { window.dataLayer.push(arguments); };
   window.gtag('js', new Date());
   window.gtag('config', ID);
-  window.pntcTrack = function (name, details) { try { window.gtag('event', name, details || {}); } catch (e) {} };
-  // clicks that matter, wherever they are on the page
+  var page = location.pathname.replace(/\.html$/, '').replace(/\/index$/, '/') || '/';
+  window.pntcTrack = function (name, details) {
+    try { var d = details || {}; if (!d.page_path) d.page_path = page; window.gtag('event', name, d); } catch (e) {}
+  };
+
+  // what kind of element was clicked
+  var CTA = /(^|[-_])(btn|cta|apply|enroll|order|inquire|send|join|ask|choice|more|allbtn|view-all|track-link|link-gold|play)([-_]|$)|^(btn|cta)/i;
+  var CARD = /(^|[-_])card([-_]|$)|^(nc|net)-/i;
+  var UI = /(^|[-_])(day|chip|tab|arrow|close|x|thumb|view|nav-btn|back|hamburger|dd-btn|on|active|is-current|media)$/i;
+  // slider, menu and window controls are not calls to action even when they are styled as buttons
+  var CONTROL = /(nav-btn|arrow|close|(^|[-_])x$|max|min|prev|next|toggle|hamburger|dd-btn|play$|thumb|dot)/i;
+  function classes(el) { return (el.getAttribute('class') || '').split(/\s+/).filter(Boolean); }
+  function inNav(el) { return !!el.closest('#pntc-gnav, nav, header, #mob-menu, .mob-menu, .pf-col, .pf-socials, [role="navigation"]'); }
+  function section(el) {
+    var box = el.closest('section[id], section[class], footer, header, nav, [role="dialog"], div[id]');
+    if (!box) return 'page';
+    if (box.id) return box.id;
+    var tag = box.tagName.toLowerCase(), c = classes(box)[0];
+    return c ? tag + '.' + c : tag;
+  }
+  function text(el) {
+    var t = (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!t) { var img = el.querySelector('img[alt]'); if (img) t = img.getAttribute('alt'); }
+    return t.slice(0, 100);
+  }
+
   document.addEventListener('click', function (e) {
-    var a = e.target.closest && e.target.closest('a, button');
-    if (!a) return;
-    var href = a.getAttribute('href') || '', label = (a.textContent || '').trim().slice(0, 80);
-    if (a.classList.contains('ep-choice')) window.pntcTrack('apply_click', { choice: label, page: location.pathname });
-    else if (a.hasAttribute('data-enroll')) window.pntcTrack('enroll_open', { button: label, page: location.pathname });
-    else if (/^tel:/.test(href)) window.pntcTrack('call_click', { number: href.slice(4), page: location.pathname });
-    else if (/^mailto:/.test(href)) window.pntcTrack('email_click', { email: href.slice(7).split('?')[0], page: location.pathname });
+    var el = e.target.closest && e.target.closest('a, button, [role="button"]');
+    if (!el) return;
+    var href = el.getAttribute('href') || '', cls = classes(el), label = text(el);
+    // the live chat box: opening it is counted, its inner controls are not (starting a chat sends chat_start)
+    if (el.closest('#pw')) { if (el.id === 'pw-bubble') window.pntcTrack('chat_open', { page_path: page }); return; }
+    var url = href && !/^(#|javascript:)/i.test(href) ? el.href || href : href;
+    var base = { cta_text: label, cta_section: section(el), link_url: url, page_path: page };
+    // the most important actions get their own names (and are also counted as calls to action below)
+    if (el.classList.contains('ep-choice')) window.pntcTrack('apply_click', { choice: label, link_url: url, page_path: page });
+    if (el.hasAttribute('data-enroll')) window.pntcTrack('enroll_open', { button: label, cta_section: base.cta_section, page_path: page });
+    if (/^tel:/i.test(href)) return window.pntcTrack('call_click', { number: href.slice(4), cta_section: base.cta_section, page_path: page });
+    if (/^mailto:/i.test(href)) return window.pntcTrack('email_click', { email: href.slice(7).split('?')[0], cta_section: base.cta_section, page_path: page });
+    var control = cls.some(function (c) { return CONTROL.test(c); });
+    var isCta = el.hasAttribute('data-enroll') || el.hasAttribute('data-order') || el.hasAttribute('data-cta') || (!control && cls.some(function (c) { return CTA.test(c); }));
+    var isCard = !isCta && cls.some(function (c) { return CARD.test(c); });
+    // buttons count as calls to action wherever they are (the Enroll Now in the menu bar too); plain menu links are nav_click
+    if (isCta) { base.cta_class = cls.join(' ').slice(0, 80); return window.pntcTrack('cta_click', base); }
+    if (el.tagName === 'A' && href && inNav(el)) return window.pntcTrack('nav_click', base);
+    if (isCard) return window.pntcTrack('card_click', base);
+    // plain links in the page text (not menus, tabs, sliders or close buttons)
+    if (el.tagName === 'A' && href && !/^#/.test(href) && !cls.some(function (c) { return UI.test(c); })) window.pntcTrack('link_click', base);
   }, true);
+
+  // how far down each page people read
+  var marks = [25, 50, 75, 100], sent = {};
+  function depth() {
+    var h = document.documentElement, max = h.scrollHeight - h.clientHeight;
+    var pct = max > 0 ? Math.round((h.scrollTop || document.body.scrollTop) / max * 100) : 100;
+    marks.forEach(function (m) { if (pct >= m && !sent[m]) { sent[m] = 1; window.pntcTrack('scroll_depth', { percent: m, page_path: page }); } });
+  }
+  var t;
+  window.addEventListener('scroll', function () { clearTimeout(t); t = setTimeout(depth, 250); }, { passive: true });
 })();
 
 (function () {
