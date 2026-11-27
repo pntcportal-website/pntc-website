@@ -416,7 +416,8 @@ const secStart = h.indexOf('<section id="merchandise"');
 const secEnd = h.indexOf('</section>', secStart) + '</section>'.length;
 if (secStart < 0) throw new Error('merchandise section not found');
 let after = h.slice(secEnd);
-after = after.replace(/^\s*<div class="mq" id="mq"[\s\S]*?\n<\/div>/, '');
+// drop every copy this tool wrote before (the hidden texts and the quick view), so each run leaves exactly one
+after = after.replace(/\s*<div class="mx-texts" hidden>[\s\S]*?\n<\/div>/g, '').replace(/\s*<div class="mq" id="mq"[\s\S]*?\n<\/div>/g, '');
 h = h.slice(0, secStart) + SECTION + after;
 
 // 2. styles and script, in place when already there
