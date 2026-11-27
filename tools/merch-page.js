@@ -398,6 +398,7 @@ document.addEventListener('DOMContentLoaded',function(){
     fetch('/api/public/merch/order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});}).then(function(x){
       if(!x.ok)throw new Error(x.d.error||'Your order could not be placed. Please try again.');
       var d=x.d,salary=d.payment==='salary';
+      if(window.pntcTrack)window.pntcTrack('merch_order',{item:cur.getAttribute('data-name'),buyer:body.buyer,payment:body.payment,quantity:Number(body.quantity)||1,value:(parseFloat(cur.getAttribute('data-amount'))||0)*(Number(body.quantity)||1),currency:'PHP'});
       done.innerHTML='<div class="mo-ok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><h3 class="mo-h">Order placed</h3>'
         +'<p class="mo-no">Your order number<b>'+e(d.orderNo)+'</b></p><p class="mo-sum">Total '+e(d.total)+'</p>'
         +'<p class="mo-next">'+e(salary?txt('mx-t-salary'):txt('mx-t-finance'))+'</p><p class="mo-next">'+e(txt('mx-t-done'))+'</p>'

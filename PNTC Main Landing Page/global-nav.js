@@ -1,3 +1,33 @@
+/* Google Analytics 4 (property PNTC Colleges, G-M9K7LJ9YMT) on every public page. The admin console does not load
+   this file, so staff work is not counted. Previews from the admin and local copies are left out too.
+   Key actions are sent as events with window.pntcTrack(name, details). */
+(function () {
+  var ID = 'G-M9K7LJ9YMT';
+  var host = location.hostname;
+  window.pntcTrack = function () {};
+  if (!/(^|\.)pntc\.edu\.ph$/.test(host) || /[?&]preview=1/.test(location.search) || window.__pntcGA) return;
+  window.__pntcGA = true;
+  var s = document.createElement('script');
+  s.async = true;
+  s.src = 'https://www.googletagmanager.com/gtag/js?id=' + ID;
+  document.head.appendChild(s);
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function () { window.dataLayer.push(arguments); };
+  window.gtag('js', new Date());
+  window.gtag('config', ID);
+  window.pntcTrack = function (name, details) { try { window.gtag('event', name, details || {}); } catch (e) {} };
+  // clicks that matter, wherever they are on the page
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a, button');
+    if (!a) return;
+    var href = a.getAttribute('href') || '', label = (a.textContent || '').trim().slice(0, 80);
+    if (a.classList.contains('ep-choice')) window.pntcTrack('apply_click', { choice: label, page: location.pathname });
+    else if (a.hasAttribute('data-enroll')) window.pntcTrack('enroll_open', { button: label, page: location.pathname });
+    else if (/^tel:/.test(href)) window.pntcTrack('call_click', { number: href.slice(4), page: location.pathname });
+    else if (/^mailto:/.test(href)) window.pntcTrack('email_click', { email: href.slice(7).split('?')[0], page: location.pathname });
+  }, true);
+})();
+
 (function () {
   'use strict';
   var script = document.currentScript;

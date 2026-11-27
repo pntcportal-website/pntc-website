@@ -1699,6 +1699,68 @@ body .pf-badge svg{width:13px;height:13px;fill:none;stroke:var(--pf-gold);stroke
   </div>
 </div>
 
+<div class="mx-texts" hidden>
+  <span id="mx-t-finance"><!--c:merch.pay.finance-->Pay at the Finance Office with your order number. Your order is confirmed once Finance receives the payment.<!--/c--></span>
+  <span id="mx-t-salary"><!--c:merch.pay.salary-->Finance will arrange the deduction from your salary and confirm your order.<!--/c--></span>
+  <span id="mx-t-done"><!--c:merch.done-->Thank you. Your order has been placed. Keep your order number so you can follow your order on this page.<!--/c--></span>
+</div>
+
+<div class="mq" id="mq" role="dialog" aria-modal="true" aria-labelledby="mq-name" hidden>
+  <div class="mq-box">
+    <button class="mq-x" type="button" id="mq-x" aria-label="Close">&times;</button>
+    <div class="mq-media">
+      <div class="mq-stage"><img id="mq-img" src="" alt=""></div>
+      <div class="mq-thumbs" id="mq-thumbs"></div>
+    </div>
+    <div class="mq-info">
+      <div id="mq-details" class="mq-details">
+        <p class="mq-cat" id="mq-cat"></p>
+        <h3 class="mq-name" id="mq-name"></h3>
+        <p class="mq-price" id="mq-price"></p>
+        <p class="mq-note" id="mq-note"></p>
+        <p class="mq-sizes" id="mq-sizes"></p>
+        <div class="mq-actions">
+          <button class="mq-btn" type="button" id="mq-order">Order this item</button>
+          <a class="mq-ask" id="mq-btn" href="mailto:admissions@mypntc.edu.ph">Ask a question</a>
+        </div>
+      </div>
+      <form class="mo" id="mo" novalidate hidden>
+        <button type="button" class="mo-back" id="mo-back">&larr; Back to the item</button>
+        <h3 class="mo-h">Order <span id="mo-item"></span></h3>
+        <p class="mo-unit" id="mo-unit"></p>
+        <fieldset class="mo-q"><legend>I am a</legend>
+          <div class="mo-seg"><label><input type="radio" name="buyer" value="student"><span>Student</span></label><label><input type="radio" name="buyer" value="employee"><span>Employee</span></label></div>
+        </fieldset>
+        <label class="mo-f"><span>Full name</span><input name="name" autocomplete="name" maxlength="120"></label>
+        <div class="mo-2">
+          <label class="mo-f"><span>Email</span><input name="email" type="email" autocomplete="email" maxlength="160"></label>
+          <label class="mo-f"><span>Mobile number</span><input name="phone" type="tel" autocomplete="tel" maxlength="30"></label>
+        </div>
+        <div class="mo-2">
+          <label class="mo-f"><span id="mo-id-l">Student number</span><input name="idNumber" maxlength="40"></label>
+          <label class="mo-f"><span id="mo-dept-l">Course and year</span><input name="department" maxlength="120"></label>
+        </div>
+        <div class="mo-2">
+          <label class="mo-f" id="mo-size-w"><span>Size</span><select name="size"></select></label>
+          <label class="mo-f"><span>Quantity</span><input name="quantity" type="number" min="1" max="20" value="1"></label>
+        </div>
+        <fieldset class="mo-q" id="mo-pay"><legend>Payment</legend>
+          <div class="mo-opts">
+            <label class="mo-opt"><input type="radio" name="payment" value="finance" checked><span><b>Pay at the Finance Office</b><small id="mo-t-finance"></small></span></label>
+            <label class="mo-opt" id="mo-salary" hidden><input type="radio" name="payment" value="salary"><span><b>Salary deduction</b><small id="mo-t-salary"></small></span></label>
+          </div>
+        </fieldset>
+        <label class="mo-f"><span>Notes <em>(optional)</em></span><textarea name="notes" rows="2" maxlength="500"></textarea></label>
+        <div class="mo-hp" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
+        <div class="mo-total"><span>Total</span><b id="mo-total"></b></div>
+        <p class="mo-err" id="mo-err" role="alert"></p>
+        <button class="mq-btn mo-send" type="submit" id="mo-send">Place order</button>
+      </form>
+      <div class="mo-done" id="mo-done" hidden></div>
+    </div>
+  </div>
+</div>
+
 
 
 <!-- ══════ FOOTER ══════ -->
@@ -2110,6 +2172,7 @@ document.addEventListener('DOMContentLoaded',function(){
     fetch('/api/public/merch/order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});}).then(function(x){
       if(!x.ok)throw new Error(x.d.error||'Your order could not be placed. Please try again.');
       var d=x.d,salary=d.payment==='salary';
+      if(window.pntcTrack)window.pntcTrack('merch_order',{item:cur.getAttribute('data-name'),buyer:body.buyer,payment:body.payment,quantity:Number(body.quantity)||1,value:(parseFloat(cur.getAttribute('data-amount'))||0)*(Number(body.quantity)||1),currency:'PHP'});
       done.innerHTML='<div class="mo-ok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><h3 class="mo-h">Order placed</h3>'
         +'<p class="mo-no">Your order number<b>'+e(d.orderNo)+'</b></p><p class="mo-sum">Total '+e(d.total)+'</p>'
         +'<p class="mo-next">'+e(salary?txt('mx-t-salary'):txt('mx-t-finance'))+'</p><p class="mo-next">'+e(txt('mx-t-done'))+'</p>'

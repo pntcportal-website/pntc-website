@@ -395,6 +395,7 @@
     var d = await r.json();
     if (!d.sessionId) throw new Error(d.error || 'Session creation failed');
     sessionId = d.sessionId;
+    if (window.pntcTrack) window.pntcTrack('chat_start', { site: SITE, topic: f.concern || '', area: f.area || '' });
     try { sessionStorage.setItem('pntc_chat_'+SITE, sessionId); } catch(e){}
   }
   async function sendMsg(text) {

@@ -167,6 +167,7 @@ const BODY = `<section id="page-banner" class="pntc-sub">
       send.disabled=true;send.firstChild.textContent='Sending… ';
       fetch('/api/public/careers/apply',{method:'POST',body:data}).then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});}).then(function(x){
         if(!x.ok)throw new Error(x.d.error||'Your application could not be sent. Please try again.');
+        if(window.pntcTrack)window.pntcTrack('job_application',{job:j.title,department:j.department||''});
         document.getElementById('ap-card').innerHTML='<div class="ap-done"><div class="ap-done-ic">'+OK+'</div><h2 class="ap-h">Application sent</h2><p>'+esc(x.d.message||f.success)+'</p><a class="ap-send" href="/careers">Back to Careers</a></div>';
         window.scrollTo({top:document.getElementById('apply').offsetTop-90,behavior:'smooth'});
       }).catch(function(e){send.disabled=false;send.firstChild.textContent='Send application ';fail(e.message);});
