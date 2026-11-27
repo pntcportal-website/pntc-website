@@ -2010,7 +2010,7 @@ As green mandates and digital integration redefine the seas, early adopters prio
       g.innerHTML=posts.map(function(p){
         var d=new Date(p.publishedAt).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric',timeZone:'Asia/Manila'});
         var th=p.featuredImage?'<div class="news-thumb"><img src="'+e(p.featuredImage)+'" alt="'+e(p.title)+'" loading="lazy"></div>':'<div class="news-thumb" style="background:linear-gradient(135deg,#1C1650,#120D3A)"></div>';
-        return '<article class="news-card visible">'+th+'<div class="news-body">'+(p.category?'<span class="news-tag">'+e(p.category)+'</span>':'')+'<div class="news-date">'+e(d)+'</div><h3>'+e(p.title)+'</h3><p>'+e(p.excerpt)+'</p><a href="blog/'+e(p.slug)+'.html" class="news-link">Read More '+L+'</a></div></article>';
+        return '<article class="news-card visible">'+th+'<div class="news-body">'+(p.category?'<span class="news-tag">'+e(p.category)+'</span>':'')+'<div class="news-date">'+e(d)+'</div><h3>'+e(p.title)+'</h3><p>'+e(p.excerpt)+'</p><a href="blog/'+e(p.slug)+'" class="news-link">Read More '+L+'</a></div></article>';
       }).join('');
       g.scrollLeft=0;paint();
     }).catch(function(){});

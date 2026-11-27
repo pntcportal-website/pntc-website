@@ -370,6 +370,12 @@ app.get('/api/posts/:id', async (req, res) => {
 const SITE_URL     = 'https://www.pntc.edu.ph';
 const SITEMAP_PATH = 'PNTC Main Landing Page/sitemap.xml';
 const BLOG_BASE    = { colleges: '/college/blog/', shs: '/shs/blog/', maritime: '/training/blog/' };
+// The official address of a post. A post published to several sites names one copy as the original
+// (College first), so Google does not see the copies as duplicates. Addresses are written without .html,
+// the way the site serves them (the .html form only redirects).
+const POST_HOME_ORDER = ['colleges', 'shs', 'maritime'];
+const postHomeSite = post => POST_HOME_ORDER.find(id => (post.sites || []).includes(id)) || null;
+const postUrl = (siteId, slug) => SITE_URL + BLOG_BASE[siteId] + slug;
 
 function sitemapEntry(url, lastmod) {
   return `  <url><loc>${SITE_URL}${encodeURI(url)}</loc><lastmod>${String(lastmod || new Date().toISOString()).slice(0, 10)}</lastmod></url>`;
@@ -393,7 +399,7 @@ async function updateSitemap() {
     if (!sitePosts.length) continue;
     const dates = sitePosts.map(p => p.updatedAt || p.publishedAt).sort();
     blogEntries.push(sitemapEntry(base, dates[dates.length - 1]));
-    for (const p of sitePosts) blogEntries.push(sitemapEntry(`${base}${p.slug}.html`, p.updatedAt || p.publishedAt));
+    for (const p of sitePosts) if (postHomeSite(p) === siteId) blogEntries.push(sitemapEntry(`${base}${p.slug}`, p.updatedAt || p.publishedAt));
   }
 
   const out = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
@@ -1755,7 +1761,7 @@ footer{background:var(--navy);color:rgba(255,255,255,.45);text-align:center;padd
 footer strong{color:var(--accent)}
 </style>
 ${gnavTag(site)}
-${BLOG_BASE[site.id] ? `<link rel="canonical" href="${SITE_URL}${BLOG_BASE[site.id]}${post.slug}.html">` : ''}
+${BLOG_BASE[site.id] ? `<link rel="canonical" href="${postUrl(BLOG_BASE[postHomeSite(post)] ? postHomeSite(post) : site.id, post.slug)}">` : ''}
 </head>
 <body>
 <nav class="nav">
@@ -1798,7 +1804,7 @@ function buildBlogIndex(posts, site) {
     :`<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">`;
   const cards = published.map(p=>{
     const date=new Date(p.publishedAt).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
-    return `<a href="${p.slug}.html" class="card">
+    return `<a href="${p.slug}" class="card">
       ${p.featuredImage?`<div class="card-img" style="background-image:url('${toBlogRelPath(p.featuredImage,site)}')"></div>`:`<div class="card-img card-img-placeholder"></div>`}
       <div class="card-body">
         ${p.category?`<span class="card-cat">${escHtml(p.category)}</span>`:''}
@@ -1810,6 +1816,7 @@ function buildBlogIndex(posts, site) {
   return `<!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>News &amp; Blog | ${escHtml(site.name)}</title>
+${BLOG_BASE[site.id] ? `<link rel="canonical" href="${SITE_URL}${BLOG_BASE[site.id]}">` : ''}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 ${fonts}
 <style>
@@ -1897,7 +1904,7 @@ function buildSHSNewsBlock(posts,site){
     const date=new Date(p.publishedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
     const img=toSiteRelPath(p.featuredImage,site);
     const thumb=img?`<div class="ev-thumb-wrap"><img src="${img}" alt="${escHtml(p.title)}" style="width:100%;height:100%;object-fit:cover"></div>`:`<div class="ev-thumb-wrap" style="background:linear-gradient(135deg,#181D71,#0d1245)"></div>`;
-    return`<a href="blog/${p.slug}.html" class="ev-card" style="text-decoration:none;color:inherit;cursor:pointer">${thumb}<div class="ev-body-wrap"><div class="ev-date">${escHtml(date)}</div><div class="ev-title">${escHtml(p.title)}</div><div class="ev-text">${escHtml(p.excerpt||'')}</div>${p.category?`<span class="ev-tag">${escHtml(p.category)}</span>`:''}</div></a>`;
+    return`<a href="blog/${p.slug}" class="ev-card" style="text-decoration:none;color:inherit;cursor:pointer">${thumb}<div class="ev-body-wrap"><div class="ev-date">${escHtml(date)}</div><div class="ev-title">${escHtml(p.title)}</div><div class="ev-text">${escHtml(p.excerpt||'')}</div>${p.category?`<span class="ev-tag">${escHtml(p.category)}</span>`:''}</div></a>`;
   }).join('\n');
   return`  <div class="events-grid" style="margin-bottom:1rem"><div class="events-row">${cards}</div></div>
   <div style="text-align:right;padding:0 0 16px"><a href="blog/index.html" style="font-size:13px;font-weight:700;color:#181D71;letter-spacing:.06em;text-transform:uppercase">See all posts →</a></div>`;
@@ -1924,7 +1931,7 @@ function buildDefaultNewsBlock(posts,site){
   const cards=posts.map(p=>{
     const date=new Date(p.publishedAt).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
     const img=toSiteRelPath(p.featuredImage,site);
-    return`<a href="blog/${p.slug}.html" class="news-card" style="text-decoration:none;color:inherit">${img?`<div class="news-thumb"><img src="${img}" alt="${escHtml(p.title)}"></div>`:`<div class="news-thumb"></div>`}<div class="news-body">${p.category?`<span class="news-tag">${escHtml(p.category)}</span>`:''}<div class="news-date">${escHtml(date)}</div><h3>${escHtml(p.title)}</h3><p>${escHtml(p.excerpt||'')}</p></div></a>`;
+    return`<a href="blog/${p.slug}" class="news-card" style="text-decoration:none;color:inherit">${img?`<div class="news-thumb"><img src="${img}" alt="${escHtml(p.title)}"></div>`:`<div class="news-thumb"></div>`}<div class="news-body">${p.category?`<span class="news-tag">${escHtml(p.category)}</span>`:''}<div class="news-date">${escHtml(date)}</div><h3>${escHtml(p.title)}</h3><p>${escHtml(p.excerpt||'')}</p></div></a>`;
   }).join('\n');
   return`  <div class="news-grid">${cards}</div>`;
 }

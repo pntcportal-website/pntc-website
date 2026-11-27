@@ -106,6 +106,12 @@ const R = [
   ['/walangpasok-*', '/college/blog/'],
   ['/advisory-beware-of-scams', '/college/blog/'],
 
+  // blog posts taken down, kept as addresses so old links and Google go somewhere useful
+  ['/college/blog/enrollment-now-open-for-s-y-2026-2027', '/college/admissions'],
+  ['/shs/blog/enrollment-now-open-for-s-y-2026-2027', '/shs/admissions'],
+  ['/college/blog/enrollment-now-open-for-s-y-2026-2027.html', '/college/admissions'],
+  ['/shs/blog/enrollment-now-open-for-s-y-2026-2027.html', '/shs/admissions'],
+
   // very old pages of the first site
   ['/index/*', '/'],
   ['/photo/*', '/'],
